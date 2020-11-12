@@ -175,6 +175,7 @@ server <- function(input, output) {
                                                         n.components = params$n.components,
                                                         vertices = params$vertices,  
                                                         balance = params$balance,
+                                                        components.balance = params$components.balance,
                                                         disturbance = params$disturbance,
                                                         aggreg.factor = params$aggreg.factor,
                                                         planar = T)
