@@ -4,6 +4,8 @@ This [R Shiny application](https://analytics.huma-num.fr/Sebastien.Plutniak/arch
 
 It includes methods to measure the cohesion and admixture of pairs of archaeological spatial units (e.g. layers), from the distribution and the topology of the refitting relationships between the fragments contained in these units. The package also makes it possible to compare the measured values to simulated fragmentation graphs.
 
+This application is interoperable with the [archeoViz](https://analytics.huma-num.fr/archeoviz/en) application for archaeological spatial data visualisation.
+
 ## Input Data
 Either load the example data set (refitting data from the Liang Abu rock shelter, Borneo) or upload your data. Use the menu on the left to upload your edges and nodes data as CSV files.
 
@@ -21,9 +23,9 @@ Select the pair of spatial units to compare in the menu, set the number of simul
 
 ## References
 
-The code and more information are available on github and in the following publications:
+More information is available in the following publications:
 
-* Plutniak, S. 2021. “[The Strength of Parthood Ties. Modelling Spatial Units and Fragmented Objects with the TSAR Method – Topological Study of Archaeological Refitting](https://hal.archives-ouvertes.fr/hal-03419952)”, **Journal of Archaeological Science**, 136, p. 105501. DOI: [10.1016/j.jas.2021.105501](https://doi.org/10.1016/j.jas.2021.105501).
-* Plutniak, S. 2022. “Archeofrag: an R package for Refitting and Spatial Analysis in Archaeology”, **Journal of Open Source Software**, 7 (75), p. 4335. DOI: [10.21105/joss.04335](https://doi.org/10.21105/joss.04335).
-* Plutniak, S. 2022. “[Archeofrag: un package R pour les remontages et l'analyse spatiale en archéologie](https://rzine.fr/publication/20220811_archeofrag_joss)”, **Rzine**.
-* Plutniak, S. 2022. “[L'analyse topologique des remontages archéologiques : la méthode TSAR et le package R archeofrag](http://www.prehistoire.org/offres/doc_inline_src/515/0-BSPF_2022_1_2e_partie_Correspondance_PLUTNIAK.pdf)”, **Bulletin de la Société préhistorique française**, 119 (1), p. 110–113.
+* Plutniak, S. 2021. “[The Strength of Parthood Ties. Modelling Spatial Units and Fragmented Objects with the TSAR Method – Topological Study of Archaeological Refitting](https://hal.archives-ouvertes.fr/hal-03419952)”, *Journal of Archaeological Science*, 136, p. 105501. DOI: [10.1016/j.jas.2021.105501](https://doi.org/10.1016/j.jas.2021.105501).
+* Plutniak, S. 2022. “Archeofrag: an R package for Refitting and Spatial Analysis in Archaeology”, *Journal of Open Source Software*, 7 (75), p. 4335. DOI: [10.21105/joss.04335](https://doi.org/10.21105/joss.04335).
+* Plutniak, S. 2022. “[Archeofrag: un package R pour les remontages et l'analyse spatiale en archéologie](https://rzine.fr/publication/20220811_archeofrag_joss)”, *Rzine*.
+* Plutniak, S. 2022. “[L'analyse topologique des remontages archéologiques : la méthode TSAR et le package R archeofrag](http://www.prehistoire.org/offres/doc_inline_src/515/0-BSPF_2022_1_2e_partie_Correspondance_PLUTNIAK.pdf)”, *Bulletin de la Société préhistorique française*, 119 (1), p. 110–113.
