@@ -232,14 +232,19 @@ server <- function(input, output, session) {
     g.list <- graph()
     
     make.stat.table <- function(g){
-      stats <- frag.get.parameters(g, "layer")
+      
+      balance <- NA
+      if(gorder(g) > 6){
+        balance <- frag.get.parameters(g, "layer")$balance
+      }
+      
       cohesion <- frag.layers.cohesion(g, "layer")
       data.frame(
         "Pair of spatial units" = paste(sort(unique(V(g)$layer)), collapse=" / "),
         "Objects" =  as.integer(count_components(g)),
         "Fragments" = gorder(g),
         "Relations" = as.integer(gsize(g)),
-        "Balance" = stats$balance,
+        "Balance" = balance,
         "Cohesion 1st unit" = cohesion[1],
         "Cohesion 2nd unit" = cohesion[2],
         "Admixture" =  frag.layers.admixture(g, "layer")
