@@ -2,22 +2,22 @@ library(shiny)
 library(shinythemes)
 library(archeofrag)
 library(ggplot2)
-library(dplyr)
 library(foreach)
 library(igraph)
 library(tidyr) # for pivot_longer()
+library("RBGL")
 library(doParallel)
 registerDoParallel()
 data(LiangAbu)
 
 
 ui <- shinyUI(fluidPage(  # UI ----
-                          theme = shinytheme("slate"),  # slate  flatly
+                          theme = shinytheme("cosmo"),  # slate  flatly
                           sidebarLayout(
                             sidebarPanel(                  
                                    h3(div(HTML("<a href=https://github.com/sebastien-plutniak/archeofrag title='Go to the archeofrag page' target=_blank>archeofrag</a>"))),
                                    uiOutput("version"),
-                                   h3("Input"),
+                                   h3("Input data"),
                                    checkboxInput("use_example", "use example data", value = F),
                                    fileInput('inputEdges', 'Edges (CSV file):',
                                              width="70%",
@@ -93,7 +93,10 @@ ui <- shinyUI(fluidPage(  # UI ----
                                 tableOutput("resultsTab")
                # ) #end conditionnal
                ), #end tabPanel
-               
+               tabPanel("Visualisation", # Visualisation ----
+                        br(),
+                        imageOutput("visualisation.plot", height = "800px", width= "100%")
+               ), #end tabPanel
                tabPanel("Simulations", # Simulations ---- 
                         column(10, align="center",
                                br(),
@@ -105,7 +108,7 @@ ui <- shinyUI(fluidPage(  # UI ----
                     graphs. The values observed on the artificial graphs are 
                     reported in the figures below as density distributions 
                     and compared to the value of the input graph (given by 
-                    the vertical bar). Artificial graphs were generated for 
+                    vertical bars). Artificial graphs were generated for 
                     two hypotheses about the formation of these layers:
                     <ol type='1'>
                      <li> assuming that the objects were buried in a single layer and
@@ -190,6 +193,7 @@ server <- function(input, output, session) {
   
   
   graph <- reactive({
+    
     req(graph.data())
     
     graph.data <- graph.data()
@@ -223,6 +227,7 @@ server <- function(input, output, session) {
     names(choices.val) <- names(g.list)
     
     selectInput("units.pair", "Pair of spatial units",
+                selected = choices.val[1],
                 choices = choices.val, width= "90%")
   })
   
@@ -265,7 +270,8 @@ server <- function(input, output, session) {
   })
   
   
-  hypotheses <- eventReactive(input$goButton, {
+  hypotheses <- eventReactive(input$goButton, { # run simulations ####
+    
     req(input$replications)
     req(graph.selected())
     
@@ -289,7 +295,7 @@ server <- function(input, output, session) {
                                 g <- frag.edges.weighting(g, "layer")
                                 inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
                                 data.frame(
-                                  "structural_admixture" = frag.layers.admixture(g, "layer"),
+                                  "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
                                   "cohes" = rbind(frag.layers.cohesion(g, "layer")),
                                   "v.obs" = gorder(g),
                                   "e.obs" = gsize(g),
@@ -312,7 +318,7 @@ server <- function(input, output, session) {
                                 g <- frag.edges.weighting(g, "layer")
                                 inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
                                 data.frame(
-                                  "structural_admixture" = frag.layers.admixture(g, "layer"),
+                                  "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
                                   "cohes" = rbind(frag.layers.cohesion(g, "layer")),
                                   "v.obs" = gorder(g),
                                   "e.obs" = gsize(g),
@@ -327,8 +333,9 @@ server <- function(input, output, session) {
     rbind(hypothese1.res, hypothese2.res)
   })
   
-  output$test.simul.edges.plot <- renderPlot({
+  output$test.simul.edges.plot <- renderPlot({   # plot edge count ####
     req(hypotheses())
+    
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -340,7 +347,7 @@ server <- function(input, output, session) {
       xlab("Edge count") + ggtitle("Edge count")
   })
   
-  output$test.simul.weightsum.plot <- renderPlot({
+  output$test.simul.weightsum.plot <- renderPlot({   # plot weights ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -352,7 +359,7 @@ server <- function(input, output, session) {
       xlab("Edge weights sum") + ggtitle("Edge weighs sum")
   })
   
-  output$test.simul.disturbance.plot <- renderPlot({
+  output$test.simul.disturbance.plot <- renderPlot({   # plot disturbance ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -366,7 +373,7 @@ server <- function(input, output, session) {
       xlab("Disturbance") + ggtitle("Disturbance")
   })  
   
-  output$test.simul.balance.plot <- renderPlot({
+  output$test.simul.balance.plot <- renderPlot({  # plot balance ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -376,11 +383,11 @@ server <- function(input, output, session) {
       theme_light(base_size = 12) +
       geom_density(alpha=.5, linewidth=.3, bw=.01)  +
       geom_vline(xintercept = stats$balance) +
-      scale_x_continuous("Balance", breaks = seq(.2, .4, .02), limits = c(.25,.4)) +
+      scale_x_continuous("Balance", limits = c(.0, .5)) + #, breaks = seq(.2, .4, .02)) + #) +
       scale_fill_grey(start = .4, end = .9) + ggtitle("Balance")
   })
   
-  output$test.simul.admixture.plot <- renderPlot({
+  output$test.simul.admixture.plot <- renderPlot({   # plot admixture ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected() 
     
@@ -388,11 +395,11 @@ server <- function(input, output, session) {
       theme_light(base_size = 12) +
       geom_density(alpha=.5, linewidth=.3) +
       scale_fill_grey("Hypothesis", start = .4, end = .9) +
-      geom_vline(xintercept = frag.layers.admixture(obs.graph, "layer")) +
+      geom_vline(xintercept = round(frag.layers.admixture(obs.graph, "layer"), 3)) +
       xlab("Admixture") + ggtitle("Admixture")
   })
   
-  output$test.simul.cohesion.plot <- renderPlot({
+  output$test.simul.cohesion.plot <- renderPlot({   # plot cohesion ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -413,7 +420,10 @@ server <- function(input, output, session) {
       scale_x_continuous("Cohesion", limits=c(0,1)) + ggtitle("Cohesion")
   })
   
-  
+  output$visualisation.plot <- renderPlot({   # VISUALISATION ####
+    req(graph.selected())
+    frag.graph.plot(graph.selected(), layer.attr = "layer")
+  })
   
 }
 
