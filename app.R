@@ -5,7 +5,7 @@ library(ggplot2)
 library(foreach)
 library(igraph)
 library(tidyr) # for pivot_longer()
-library("RBGL")
+library(RBGL)
 library(doParallel)
 registerDoParallel()
 data(LiangAbu)
@@ -116,12 +116,14 @@ ui <- shinyUI(fluidPage(  # UI ----
                     <li> assuming that the objects were buried in two layers and
                     subsequently moved.</li>
                     </ol>
+                    The table below summarises the results for each parameter, indicating whether the observed value is lower / within the interquartile range / higher compared to the values simulated for H1 and H2, respectively.
                     </p>
                  </div>") ),
                                    ), # end conditionnal panel
                br(),
                # conditionalPanel(condition = "typeof test.simul.edges.plot !== 'undefined'",
                                 textOutput("launched"),
+                                tableOutput("summary.tab"), 
                                 imageOutput("test.simul.edges.plot", height = "200px", width= "100%"),
                                 imageOutput("test.simul.weightsum.plot", height = "200px", width= "100%"),
                                 imageOutput("test.simul.disturbance.plot", height = "200px", width= "100%"),
@@ -277,7 +279,6 @@ server <- function(input, output, session) {
     
     graph <- graph.selected()
     
-    
     params <- frag.get.parameters(graph, "layer")
     
     output$launched <- renderText({""})
@@ -333,7 +334,28 @@ server <- function(input, output, session) {
     rbind(hypothese1.res, hypothese2.res)
   })
   
-  output$test.simul.edges.plot <- renderPlot({   # plot edge count ####
+  summary.tab <- eventReactive(input$goButton, {# summary table  ----
+     
+    req(hypotheses())
+    hypotheses.df <- hypotheses()
+
+    hypotheses.df <- hypotheses.df[ , -4]
+    colnames(hypotheses.df) <- c("admixture", "cohesion1", "cohesion2",  "edges", "balance", "disturbance", "weightsum","hypothesis")
+    
+    summary.df <- frag.simul.summarise(graph.selected(), 
+                         layer.attr = "layer", 
+                         res.h1 = hypotheses.df[hypotheses.df$hypothesis == "1", -8], 
+                         res.h2 = hypotheses.df[hypotheses.df$hypothesis == "2", -8], 
+                         cohesion1.attr="cohesion1", cohesion2.attr="cohesion2", 
+                         admixture.attr="admixture")
+    colnames(summary.df)  <- c("H1 != H2?", "p.value", "Obs. value/H1", "Obs. value/H2")
+    summary.df
+    })
+
+    output$summary.tab <- renderTable({summary.tab()}, rownames=T)
+  
+  
+  test.simul.edges.plot <- eventReactive(input$goButton, {    # plot edge count ####
     req(hypotheses())
     
     hypotheses.df <- hypotheses()
@@ -347,7 +369,10 @@ server <- function(input, output, session) {
       xlab("Edge count") + ggtitle("Edge count")
   })
   
-  output$test.simul.weightsum.plot <- renderPlot({   # plot weights ####
+  output$test.simul.edges.plot <- renderPlot({test.simul.edges.plot()})
+  
+  
+test.simul.weightsum.plot <- eventReactive(input$goButton, { # plot weights ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -359,7 +384,10 @@ server <- function(input, output, session) {
       xlab("Edge weights sum") + ggtitle("Edge weighs sum")
   })
   
-  output$test.simul.disturbance.plot <- renderPlot({   # plot disturbance ####
+output$test.simul.weightsum.plot <-  renderPlot({test.simul.weightsum.plot()})
+  
+
+  test.simul.disturbance.plot <-  eventReactive(input$goButton, {  # plot disturbance ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -373,7 +401,11 @@ server <- function(input, output, session) {
       xlab("Disturbance") + ggtitle("Disturbance")
   })  
   
-  output$test.simul.balance.plot <- renderPlot({  # plot balance ####
+  output$test.simul.disturbance.plot <- renderPlot({   test.simul.disturbance.plot()})
+  
+  
+  
+test.simul.balance.plot <-  eventReactive(input$goButton, {  # plot balance ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -386,8 +418,10 @@ server <- function(input, output, session) {
       scale_x_continuous("Balance", limits = c(.0, .5)) + #, breaks = seq(.2, .4, .02)) + #) +
       scale_fill_grey(start = .4, end = .9) + ggtitle("Balance")
   })
+output$test.simul.balance.plot <- renderPlot({test.simul.balance.plot()})
   
-  output$test.simul.admixture.plot <- renderPlot({   # plot admixture ####
+  
+test.simul.admixture.plot <- eventReactive(input$goButton, {   # plot admixture ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected() 
     
@@ -399,7 +433,10 @@ server <- function(input, output, session) {
       xlab("Admixture") + ggtitle("Admixture")
   })
   
-  output$test.simul.cohesion.plot <- renderPlot({   # plot cohesion ####
+  output$test.simul.admixture.plot <- renderPlot({ test.simul.admixture.plot()  })
+  
+  
+  test.simul.cohesion.plot <- eventReactive(input$goButton, {   # plot cohesion ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -419,6 +456,9 @@ server <- function(input, output, session) {
       facet_wrap(~hypothesis, ncol=1) +
       scale_x_continuous("Cohesion", limits=c(0,1)) + ggtitle("Cohesion")
   })
+  output$test.simul.cohesion.plot <- renderPlot({test.simul.cohesion.plot()})
+  
+  
   
   output$visualisation.plot <- renderPlot({   # VISUALISATION ####
     req(graph.selected())
