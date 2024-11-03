@@ -3,152 +3,186 @@ library(shinythemes)
 library(archeofrag)
 library(ggplot2)
 library(foreach)
-library(igraph)
+library(DT)
+library(dendextend)
+library(igraph) # for 
 library(tidyr) # for pivot_longer()
+if( ! requireNamespace("RBGL")){
+  if( ! requireNamespace("BiocManager")){
+    install.packages("BiocManager")
+  }
+  BiocManager::install("RBGL")
+}
 library(RBGL)
+
 library(doParallel)
 registerDoParallel()
+# getDoParWorkers()
 data(LiangAbu)
-
 
 ui <- shinyUI(fluidPage(  # UI ----
                           theme = shinytheme("cosmo"),  # slate  flatly
                           sidebarLayout(
                             sidebarPanel(                  
-                                   h3(div(HTML("<a href=https://github.com/sebastien-plutniak/archeofrag title='Go to the archeofrag page' target=_blank>archeofrag</a>"))),
-                                   uiOutput("version"),
-                                   h3("Input data"),
-                                   checkboxInput("use_example", "use example data", value = F),
-                                   fileInput('inputEdges', 'Edges (CSV file):',
-                                             width="70%",
-                                             accept=c('text/csv', 'text/comma-separated-values,text/plain')),
-                                   fileInput('inputNodes', 'Nodes (CSV file):',
-                                             width="70%",
-                                             accept=c('text/csv', 'text/comma-separated-values,text/plain')),
-                                   radioButtons(inputId = 'sep', label = 'Separator:', 
-                                                choices = c("," =',' , ";"=';'
-                                                            ,"tab"='\t'), inline=T, selected = ','),
-                                   
-                                   h3("Compare to simulated values"),
-                                   uiOutput("layers.selector"),
-                                   numericInput("replications", "Replications", 50, min=30, max=500, width="50%"),
-                                 actionButton("goButton", "Run", width="50%"),
-                            width=2), # end sidebarpanel
+                              h3(div(HTML("<a href=https://github.com/sebastien-plutniak/archeofrag title='Go to the archeofrag page' target=_blank>archeofrag</a> v",  as.character(utils::packageVersion("archeofrag")) ))),
+                              h3("Input data"),
+                              checkboxInput("use_example", "use example data", value = F),
+                              fileInput('inputEdges', 'Relations (CSV file):',
+                                        width="70%",
+                                        accept=c('text/csv', 'text/comma-separated-values,text/plain')),
+                              fileInput('inputNodes', 'Fragments (CSV file):',
+                                        width="70%",
+                                        accept=c('text/csv', 'text/comma-separated-values,text/plain')),
+                              radioButtons(inputId = 'sep', label = 'Separator:', 
+                                           choices = c("," =',' , ";"=';'
+                                                       ,"tab"='\t'), inline=T, selected = ','),
+                              width=2), # end sidebarpanel
                             
                             mainPanel(
                               tabsetPanel(id="tabs",
-                                      tabPanel("Introduction", # Introduction ----      
-                            column(10, align="center",
-                                   # conditionalPanel(condition = "typeof output.resultsTab == 'undefined'",    
-                                                    tags$div(
-                                                      HTML("<div style=width:400px;, align=left>
-                <h2>Welcome to <i>archeofrag</i></h2>
+                                          tabPanel("Introduction", # Introduction ----      
+                                                   column(10, align="center",
+                                                          tags$div(
+                                                            HTML("<div style=width:400px;, align=left>
+                <h1><i>archeofrag-gui</i></h1>
                 <p>
-                This application demonstrates some features of the
+                This application implemets some features of the
                 <i><a href=https://cran.r-project.org/web/packages/archeofrag/index.html target=_blank>archeofrag</a></i>
-                R package for the spatial analysis of refitting objects 
-                 in archaeology.
-                </p>
-                <p>
-                It includes methods to measure the <b>cohesion</b> and <b>admixture</b> of 
-                pairs of archaeological spatial units (e.g. layers),
-                from the distribution and the topology of the 
-                refitting relationships between the
-                fragments contained in these units. The package also makes it possible to compare the measured values to <b>simulated</b> fragmentation graphs.
+                R package for spatial analysis in archaeology from the study of refitting fragments of objects.  It includes methods to <b>evaluate and validate</b> the distinction between <b>archaeological spatial units</b> (e.g. layers), from the distribution and the topology of the refitting relationships between fragments contained in these units.
                 </p>
                 <h3>Input Data</h3>
                 <p>
-                  Either load the example data set (refitting data from the <a href=10.5281/zenodo.4719577 target=_blank>Liang Abu rock shelter</a>, Borneo) or upload  your data. Use the menu on the left to upload your edges and nodes data as CSV files. 
+                  Either upload your data or load the example data set (refitting data from the <a href=10.5281/zenodo.4719577 target=_blank>Liang Abu rock shelter</a>, Borneo). Use the menu on the left to upload your “relations” and “fragments” data as CSV files. 
                   <ul>
-                    <li>The edges table must have a row for each refitting relationship, with two columns containing the identifiers of the two fragments;</li>
-                  <li>the nodes table must have a row for each fragment, the first column contains the fragments identifiers and the second column
-                  contains their layer.</li>
+                    <li>The <b>relations</b> table must have a row for each refitting relationship and two columns containing the identifiers of each pair of refitting fragments, respectively;</li>
+                  <li>the <b>fragments</b> table must have a row for each fragment, the first column contains its identifier and the second column contains the spatial unit it belongs to (name this column “layer”).</li>
                   </ul>
                 </p>
+                <h3>Measurements</h3>
+                <p>In this tab, statistics are reported for all pairs of spatial units defined in the dataset: number of fragments and refitting relationships, etc. The <b>cohesion</b> and <b>admixture</b> values are calculated using the TSAR method. Tables and figures facilitate the exploration of the results</p>
                 <h3>Comparison with simulated data</h3>
-                <p>The observed data can be compared to similar simulated data for two formation hypothesis:
+                <p>This tab includes functions for in-depth analysis of a specific pair of spatial units. This pair is compared to similar artificial data, simulated for two different formation hypothesis:
                 <ul>
-                    <li>H1, the archaeological material studied comes from a single deposition episode, within which archaeologists distinguished two subsets;</li>
-                    <li>H2, the material was deposited during two deposition episodes, that archaeologists could not distinguish due to subsequent perturbations, admixture, and sampling resulting either from human or non-human action</li>
+                    <li>H1, the archaeological material studied comes from a <b>single deposition event</b> (although archeaologists might have distinguished two spatial units / depositional events).</li>
+                    <li>H2, the material was deposited during <b>two deposition events</b>.</li>
                 </ul>                    
-                Select the pair of spatial units to compare in the menu, set the number of simulated data sets to generate, and click on the “Run” button. Depending on the size of the data set, the computing time can be long. Charts are generated for various parameters measured on the fragmentation graphs: the value observed on the empirical graph is represented by a vertical bar, the distribution of values for each hypotheses are represented by dark (H1) and light (H2) grey shades.</p>
-                <h3>References</h3>
+                <h1>References</h1>
                 <p>
                 The code and more information are available on <a target=_blank, href=https://github.com/sebastien-plutniak/archeofrag/>github</a> and in the following publications:
                 <ul>
                   <li>Plutniak, S. 2021. “<a href=https://hal.archives-ouvertes.fr/hal-03419952 target=_blank>The Strength of Parthood Ties. Modelling Spatial Units and Fragmented Objects with the TSAR Method – Topological Study of Archaeological Refitting</a>”, <i>Journal of Archaeological Science</i>, 136, p. 105501. DOI: <a href=https://doi.org/10.1016/j.jas.2021.105501 target=_blank>10.1016/j.jas.2021.105501</a>.</li>
                   <li>Plutniak, S. 2022. “Archeofrag: an R package for Refitting and Spatial Analysis in Archaeology”, <i>Journal of Open Source Software</i>, 7 (75), p. 4335. DOI: <a href=https://doi.org/10.21105/joss.04335 target=_blank>10.21105/joss.04335</a>.</li>
-                  <li>Plutniak, S. 2022. “<a href=https://rzine.fr/publication/20220811_archeofrag_joss target=_blank>Archeofrag: un package R pour les remontages et l'analyse spatiale en archéologie</a>”, <i>Rzine</i>.</li>
-                  <li>
-    Plutniak, S. 2022. “<a href=http://www.prehistoire.org/offres/doc_inline_src/515/0-BSPF_2022_1_2e_partie_Correspondance_PLUTNIAK.pdf target=_blank>L'analyse topologique des remontages archéologiques : la méthode TSAR et le package R archeofrag</a>”, <i>Bulletin de la Société préhistorique française</i>, 119 (1), p. 110–113.</li>
+                  <li>Plutniak, S. 2022. “<a href=https://rzine.fr/ressources/20220811_archeofrag_joss/ target=_blank>Archeofrag: un package R pour les remontages et l'analyse spatiale en archéologie</a>”, <i>Rzine</i>.</li>
+                  <li>Plutniak, S. 2022. “<a href=http://www.prehistoire.org/offres/doc_inline_src/515/0-BSPF_2022_1_2e_partie_Correspondance_PLUTNIAK.pdf target=_blank>L'analyse topologique des remontages archéologiques : la méthode TSAR et le package R archeofrag</a>”, <i>Bulletin de la Société préhistorique française</i>, 119 (1), p. 110–113.</li>
+                  <li>Plutniak, S., J. Caro, C. Manen 2023. “<a href=https://hal.science/hal-04355706 target=_blank>Four Problems for Archaeological Fragmentation Studies. Discussion and Application to the Taï Cave’s Neolithic Pottery Material (France)</a>”, in A. Sörman, A. Noterman, M. Fjellström (eds.) <i>Broken Bodies, Places and Objects. New Perspectives on Fragmentation in Archaeology</i>, London: Routledge, p. 124–142. DOI: <a href=https://doi.org/10.4324/9781003350026-1 target=_blank>10.4324/9781003350026-11</a>.</li>
                 </ul>
                 </p></div>"))
-                            ) # end column
-                                   # ), #end conditionnal
-                          ), #end tabPanel
-                                   
-               tabPanel("Measurements", # Measurements ----
-               # conditionalPanel(condition = "typeof resultsTab !== 'undefined'",
-                                br(),
-                                tableOutput("resultsTab")
-               # ) #end conditionnal
-               ), #end tabPanel
-               tabPanel("Visualisation", # Visualisation ----
-                        br(),
-                        imageOutput("visualisation.plot", height = "800px", width= "100%")
-               ), #end tabPanel
-               tabPanel("Simulations", # Simulations ---- 
-                        column(10, align="center",
-                               br(),
-               conditionalPanel(condition = "typeof output.launched !== 'undefined'",
-                                tags$div(
-                                  HTML("<div style=width:500px;, align=left>
-                    <p>Parameters (number of fragments, relations, etc.) have been extracted
-                    from the input graph and used to generate a set of artificial
-                    graphs. The values observed on the artificial graphs are 
-                    reported in the figures below as density distributions 
-                    and compared to the value of the input graph (given by 
-                    vertical bars). Artificial graphs were generated for 
-                    two hypotheses about the formation of these layers:
-                    <ol type='1'>
-                     <li> assuming that the objects were buried in a single layer and
-                    subsequently moved;</li>
-                    <li> assuming that the objects were buried in two layers and
-                    subsequently moved.</li>
-                    </ol>
-                    The table below summarises the results for each parameter, indicating whether the observed value is lower / within the interquartile range / higher compared to the values simulated for H1 and H2, respectively.
+                                                   ) # end column
+                                          ), #end tabPanel
+                                          
+                                          tabPanel("Measurements", # Measurements ----
+                                                   br(),
+                                                   h1("Stats by pair of spatial units"),
+                                                   DT::dataTableOutput("resultsTab",  width="80%"), 
+                                                   h1("Admixture between spatial units"),
+                                                   tableOutput("admixTab"),
+                                                   imageOutput("admix.plot",  width= "50%")
+                                          ), #end tabPanel
+                                          tabPanel("Visualisation", # Visualisation ----
+                                                   br(),
+                                                   imageOutput("visualisation.plot", height = "800px", width= "100%")
+                                          ), #end tabPanel
+                                          tabPanel("Simulation", # Simulation ---- 
+                                                   fluidRow(
+                                                     h2("Information"),
+                                                   column(10, align="center",
+                                                          tags$div(
+                                                            HTML("<div style=width:500px;, align=left>
+                    <h3>Instruction</h3>
+                    <p>
+                      <ul>
+                      <li>Select the pair of spatial units to compare in the menu</li>
+                      <li>The parameters of the simulation are automatically filled with the values measured on the graph corresponding to the two spatial units selected, but can be edited.</li>
+                      <li> Set the number of simulated graphs to generate by hypothesis, and click on the “Run” button. Using parallelization speeds up the computation (however, if an error appears, untick the box and be patient).</li>
+                      </ul>
                     </p>
-                 </div>") ),
-                                   ), # end conditionnal panel
-               br(),
-               # conditionalPanel(condition = "typeof test.simul.edges.plot !== 'undefined'",
-                                textOutput("launched"),
-                                tableOutput("summary.tab"), 
-                                imageOutput("test.simul.edges.plot", height = "200px", width= "100%"),
-                                imageOutput("test.simul.weightsum.plot", height = "200px", width= "100%"),
-                                imageOutput("test.simul.disturbance.plot", height = "200px", width= "100%"),
-                                imageOutput("test.simul.balance.plot", height = "200px", width= "100%"),
-                                imageOutput("test.simul.admixture.plot", height = "200px", width= "100%"),
-                                imageOutput("test.simul.cohesion.plot", height = "400px", width= "100%")
-                                   # ) #end conditionalPanel
-                            ) #end tabPanel
-                           ), # end  tabsetPanel
-                            ), # end column
-                          width=10) # end mainPanel
-               ) #sidebarLayout
-           ) #end fluidPage
+                    <h3>Procedure</h3>
+                    <p>
+                    Parameters (number of objects, fragment balance, etc.) are extracted from the input graph for the pair of spatial units under study, and used to generate a series of artificial graphs. Artificial graphs are generated for two deposition hypotheses:
+                    <ol type='1'>
+                     <li> the objects were buried in a single spatial unit and subsequently moved;</li>
+                     <li> the objects were buried in two spatial units and subsequently moved.</li>
+                    </ol>
+                    </p>
+                    <p>
+                    <h3>Results</h3>
+                    The table below summarises the results for each parameter, indicating 
+                   <ul>
+                     <li>whether the simulated values for H1 and H2 are significantly different (<a href=https://en.wikipedia.org/wiki/Wilcoxon_signed-rank_test target=_blank>Wilcoxon test</a>, “H1 != H2?” and “p.value” columns), and 
+                     <li>whether the observed value is lower / within / higher the interquartile range of values simulated for H1 and H2, respectively (“Obs. value/H1” and “Obs. value/H2” columns).</li>
+                     </ul>
+                      Charts are generated for the parameters measured on the empirical and artificial fragmentation graphs: 
+                      <ul>
+                      <li>the value observed on the empirical graph is represented by a vertical bar, </li>
+                      <li>the distribution of values for each hypotheses are represented by dark (H1) and light (H2) grey shades, respectively.</li>
+                      </ul>
+                      </p>
+                    </p>
+                 </div>") )
+                                                   ) # end column
+                                                   ), # end fluidrow
+                                                   fluidRow(
+                                                     h2("Pair of spatial units"),
+                                                     column(2, uiOutput("layers.selector")),
+                                                   ),
+                                                   fluidRow(
+                                                    h2("Parameters set up"),
+                                                    column(2, uiOutput("n.components")),
+                                                    column(4, uiOutput("components.balance")),
+                                                  ),
+                                                  fluidRow(
+                                                    column(2, uiOutput("planar")),
+                                                    column(4, uiOutput("balance")),
+                                                    column(4, uiOutput("aggreg.factor"))
+                                                  ), #end fluidrow
+                                                  fluidRow(
+                                                    column(2, uiOutput("n.final.fragments")),
+                                                    column(4, uiOutput("disturbance"))
+                                                  ),
+                                                  fluidRow(
+                                                            h2("Computation set up"),
+                                                            column(1, 
+                                                                   numericInput("replications", "Replications",
+                                                                                50, min=30, max=500, width = "100%")),
+                                                            column(1, actionButton("goButton", "Run"), style="padding:27px;"),
+                                                            column(2, checkboxInput("parallelize",
+                                                                                    paste0("Parallelize (n workers: ",
+                                                                                           foreach::getDoParWorkers(), ")"), value=T),
+                                                                   style="padding:27px;")
+                                                          ), #end fluidrow
+                                                  fluidRow(
+                                                        h2("Results"),
+                                                        column(10, align="center",
+                                                          tableOutput("summary.tab"), 
+                                                          imageOutput("test.simul.edges.plot", height = "200px", width= "100%"),
+                                                          imageOutput("test.simul.weightsum.plot", height = "200px", width= "100%"),
+                                                          imageOutput("test.simul.disturbance.plot", height = "200px", width= "100%"),
+                                                          imageOutput("test.simul.balance.plot", height = "200px", width= "100%"),
+                                                          imageOutput("test.simul.admixture.plot", height = "200px", width= "100%"),
+                                                          imageOutput("test.simul.cohesion.plot", height = "400px", width= "100%")
+                                                   ) # end column
+                                                   ) # end fluidrow
+                                                   ) # end tabPanel
+                                          ), # end  tabsetPanel
+                              width=10) # end mainPanel
+                          ) #sidebarLayout
+) #end fluidPage
 ) #end  shinyUI
 
 
 
 # DEFINE SERVER  ----    
 server <- function(input, output, session) { 
-  
-  # title ----
-  output$version <- renderUI({
-    version <- paste("v", utils::packageVersion("archeofrag"), sep="")
-    div(HTML(version))
-  })
   
   # data input ----
   userNodes <- reactive({
@@ -166,7 +200,6 @@ server <- function(input, output, session) {
     validate(
       need(input$inputEdges,
            message = "Choose an edge file or use the example data.")
-      
     )
     input$inputEdges
   })
@@ -195,7 +228,6 @@ server <- function(input, output, session) {
   
   
   graph <- reactive({
-    
     req(graph.data())
     
     graph.data <- graph.data()
@@ -228,18 +260,64 @@ server <- function(input, output, session) {
     choices.val <- 1:length(g.list)
     names(choices.val) <- names(g.list)
     
-    selectInput("units.pair", "Pair of spatial units",
+    selectInput("units.pair", "Spatial units",
                 selected = choices.val[1],
                 choices = choices.val, width= "90%")
   })
   
   
-  output$resultsTab <- renderTable({  # numerical results ----
+  input.graph.params <- reactive({ # input graph params ----
+    req(graph.selected())
+    frag.get.parameters(graph.selected(), "layer")
+  })
+  
+  output$n.components <- renderUI({
+    req(graph()) 
+    numericInput("n.components", "Initial objects number", value = input.graph.params()$n.components, width = "100%")
+  })
+  
+  output$components.balance <- renderUI({
+    req(input.graph.params())
+    sliderInput("components.balance", "Initial objects balance",
+                min = 0, max= 1, step = .01, 
+                value = input.graph.params()$components.balance, width = "100%")
+  })
+  
+  output$balance <- renderUI({
+    req(input.graph.params())
+    sliderInput("balance", "Fragments balance",  min = 0, max= 1, step = .01,
+                value = input.graph.params()$balance, width = "100%")
+  })
+  
+  output$n.final.fragments <- renderUI({
+    req(graph())
+    numericInput("n.final.fragments", "Final fragments number", value = input.graph.params()$vertices, width = "100%")
+  })
+  
+  output$disturbance <- renderUI({
+    req(input.graph.params())
+    sliderInput("disturbance", "Final disturbance", min = 0, max= .5, step = .01, 
+                value = input.graph.params()$disturbance, width = "100%")
+  })
+  
+  output$aggreg.factor <- renderUI({
+    req(input.graph.params())
+    sliderInput("aggreg.factor", "Aggregation factor", min = 0, max= 1, step = .01, 
+                value = input.graph.params()$aggreg.factor, width = "100%")
+  })
+  
+  output$planar <- renderUI({
+    req(input.graph.params())
+    checkboxInput("planar", "Generate only planar graphs", value = input.graph.params()$planar)
+  })
+  
+  
+  
+stats.table <- reactive({    # Stats table ----
     req(graph())
     g.list <- graph()
     
     make.stat.table <- function(g){
-      
       balance <- NA
       if(gorder(g) > 6){
         balance <- frag.get.parameters(g, "layer")$balance
@@ -248,9 +326,9 @@ server <- function(input, output, session) {
       cohesion <- frag.layers.cohesion(g, "layer")
       data.frame(
         "Pair of spatial units" = paste(sort(unique(V(g)$layer)), collapse=" / "),
-        "Objects" =  as.integer(count_components(g)),
-        "Fragments" = gorder(g),
-        "Relations" = as.integer(gsize(g)),
+        "Objects" =  as.integer(igraph::count_components(g)),
+        "Fragments" = as.integer(igraph::gorder(g)),
+        "Relations" = as.integer(igraph::gsize(g)),
         "Balance" = balance,
         "Cohesion 1st unit" = cohesion[1],
         "Cohesion 2nd unit" = cohesion[2],
@@ -264,6 +342,40 @@ server <- function(input, output, session) {
     df
   })
   
+  output$resultsTab <- DT::renderDataTable({ 
+    DT::datatable(stats.table(), rownames=F,  escape=F, style = "default", selection = 'none',  options = list(dom = 't'))
+  })
+  
+  admixTab <- reactive({  # admix table ----
+    req(graph.data())
+    var.names <- sort(unique(graph.data()$objects.df$layer))
+    admix.matrix <- matrix(ncol = length(var.names),
+                           nrow = length(var.names))
+    
+    rownames(admix.matrix) <- colnames(admix.matrix) <- var.names
+    admix.matrix[lower.tri(admix.matrix) ]  <- stats.table()$Admixture
+    as.dist(admix.matrix)
+  })
+  
+  output$admixTab <- renderTable({ 
+    req(admixTab())
+    admixTab <- as.matrix(admixTab())
+    admixTab[upper.tri(admixTab, diag = T)] <- NA
+    admixTab
+  }, rownames = T, colnames = T, na = "-")
+  
+  
+  
+  output$admix.plot <- renderPlot({  # admix plot ----
+    req(admixTab())
+    
+    as.dendrogram(hclust(1 - admixTab()), method = "complete") %>% 
+      sort(decreasing = T) %>%
+      plot(horiz = T, xlab ="Distance: 1 – admixture. An alphanumerical ordering constraint is applied to the branches of the dendrogram") 
+  })
+  
+  
+  
   graph.selected <- reactive({
     req(graph(), input$units.pair)
     graph.list <- graph()
@@ -272,36 +384,41 @@ server <- function(input, output, session) {
   })
   
   
+  
   hypotheses <- eventReactive(input$goButton, { # run simulations ####
     
     req(input$replications)
     req(graph.selected())
-    
     graph <- graph.selected()
+     
+    params <- list("n.components" = input$n.components,
+                   "n.final.fragments" = input$n.final.fragments,  
+                   "balance" = input$balance,
+                   "components.balance" = input$components.balance,
+                   "disturbance" = input$disturbance,
+                   "aggreg.factor" = input$aggreg.factor,
+                   "planar" = input$planar)
     
-    params <- frag.get.parameters(graph, "layer")
-    
-    output$launched <- renderText({""})
-    
+    if(input$parallelize){
     hypothese1.res <- foreach(i=1:input$replications,  .combine = "rbind",
-                              .errorhandling = "remove") %dopar%{
+                              .errorhandling = "stop") %dopar%{
                                 g <- frag.simul.process(initial.layers = 1,
                                                         n.components = params$n.components,
-                                                        vertices = params$vertices,  
+                                                        vertices = params$n.final.fragments,  
                                                         balance = params$balance,
                                                         components.balance = params$components.balance,
                                                         disturbance = params$disturbance,
                                                         aggreg.factor = params$aggreg.factor,
-                                                        planar = T)
+                                                        planar = params$planar)
                                 g <- frag.edges.weighting(g, "layer")
                                 inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
                                 data.frame(
                                   "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
                                   "cohes" = rbind(frag.layers.cohesion(g, "layer")),
-                                  "v.obs" = gorder(g),
-                                  "e.obs" = gsize(g),
+                                  "v.obs" = igraph::gorder(g),
+                                  "e.obs" = igraph::gsize(g),
                                   "bal.obs" = sort(table(V(g)$layer))[1] / sum(table(V(g)$layer)),
-                                  "dist.obs" = length(inter.layer.e) / gsize(g),
+                                  "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
                                   "weightsum" = sum(E(g)$weight)
                                 )
                               }
@@ -310,12 +427,12 @@ server <- function(input, output, session) {
                               .errorhandling = "remove") %dopar%{
                                 g <- frag.simul.process(initial.layers = 2,
                                                         n.components = params$n.components,
-                                                        vertices = params$vertices,  
+                                                        vertices = params$n.final.fragments,  
                                                         balance = params$balance,
                                                         components.balance = params$components.balance,
                                                         disturbance = params$disturbance,
                                                         aggreg.factor = params$aggreg.factor,
-                                                        planar = T)
+                                                        planar = params$planar)
                                 g <- frag.edges.weighting(g, "layer")
                                 inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
                                 data.frame(
@@ -329,30 +446,79 @@ server <- function(input, output, session) {
                                 )
                               }
     
+    } else {
+      hypothese1.res <- foreach(i=1:input$replications,  .combine = "rbind",
+                                .errorhandling = "remove") %do%{
+                                  g <- frag.simul.process(initial.layers = 1,
+                                                          n.components = params$n.components,
+                                                          vertices = params$n.final.fragments,  
+                                                          balance = params$balance,
+                                                          components.balance = params$components.balance,
+                                                          disturbance = params$disturbance,
+                                                          aggreg.factor = params$aggreg.factor,
+                                                          planar = params$planar)
+                                  g <- frag.edges.weighting(g, "layer")
+                                  inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
+                                  data.frame(
+                                    "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
+                                    "cohes" = rbind(frag.layers.cohesion(g, "layer")),
+                                    "v.obs" = igraph::gorder(g),
+                                    "e.obs" = igraph::gsize(g),
+                                    "bal.obs" = sort(table(V(g)$layer))[1] / sum(table(V(g)$layer)),
+                                    "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
+                                    "weightsum" = sum(E(g)$weight)
+                                  )
+                                }
+      
+      hypothese2.res <- foreach(i=1:input$replications,  .combine = "rbind",
+                                .errorhandling = "remove") %do%{
+                                  g <- frag.simul.process(initial.layers = 2,
+                                                          n.components = params$n.components,
+                                                          vertices = params$n.final.fragments,  
+                                                          balance = params$balance,
+                                                          components.balance = params$components.balance,
+                                                          disturbance = params$disturbance,
+                                                          aggreg.factor = params$aggreg.factor,
+                                                          planar = params$planar)
+                                  g <- frag.edges.weighting(g, "layer")
+                                  inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
+                                  data.frame(
+                                    "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
+                                    "cohes" = rbind(frag.layers.cohesion(g, "layer")),
+                                    "v.obs" = gorder(g),
+                                    "e.obs" = gsize(g),
+                                    "bal.obs" = sort(table(V(g)$layer))[1] / sum(table(V(g)$layer)),
+                                    "dist.obs" = length(inter.layer.e) / gsize(g),
+                                    "weightsum" = sum(E(g)$weight)
+                                  )
+                                }
+    } # end else
+    
+    
     hypothese1.res$hypothesis <- "1"
     hypothese2.res$hypothesis <- "2"
     rbind(hypothese1.res, hypothese2.res)
   })
   
   summary.tab <- eventReactive(input$goButton, {# summary table  ----
-     
+    
     req(hypotheses())
     hypotheses.df <- hypotheses()
-
+    
     hypotheses.df <- hypotheses.df[ , -4]
     colnames(hypotheses.df) <- c("admixture", "cohesion1", "cohesion2",  "edges", "balance", "disturbance", "weightsum","hypothesis")
     
     summary.df <- frag.simul.summarise(graph.selected(), 
-                         layer.attr = "layer", 
-                         res.h1 = hypotheses.df[hypotheses.df$hypothesis == "1", -8], 
-                         res.h2 = hypotheses.df[hypotheses.df$hypothesis == "2", -8], 
-                         cohesion1.attr="cohesion1", cohesion2.attr="cohesion2", 
-                         admixture.attr="admixture")
+                                       layer.attr = "layer", 
+                                       res.h1 = hypotheses.df[hypotheses.df$hypothesis == "1", -8], 
+                                       res.h2 = hypotheses.df[hypotheses.df$hypothesis == "2", -8], 
+                                       cohesion1.attr="cohesion1", cohesion2.attr="cohesion2", 
+                                       admixture.attr="admixture")
     colnames(summary.df)  <- c("H1 != H2?", "p.value", "Obs. value/H1", "Obs. value/H2")
     summary.df
-    })
-
-    output$summary.tab <- renderTable({summary.tab()}, rownames=T)
+  })
+  
+  output$summary.tab <- renderTable({summary.tab()}, rownames=T)
   
   
   test.simul.edges.plot <- eventReactive(input$goButton, {    # plot edge count ####
@@ -372,7 +538,7 @@ server <- function(input, output, session) {
   output$test.simul.edges.plot <- renderPlot({test.simul.edges.plot()})
   
   
-test.simul.weightsum.plot <- eventReactive(input$goButton, { # plot weights ####
+  test.simul.weightsum.plot <- eventReactive(input$goButton, { # plot weights ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -384,9 +550,9 @@ test.simul.weightsum.plot <- eventReactive(input$goButton, { # plot weights ####
       xlab("Edge weights sum") + ggtitle("Edge weighs sum")
   })
   
-output$test.simul.weightsum.plot <-  renderPlot({test.simul.weightsum.plot()})
+  output$test.simul.weightsum.plot <-  renderPlot({test.simul.weightsum.plot()})
   
-
+  
   test.simul.disturbance.plot <-  eventReactive(input$goButton, {  # plot disturbance ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
@@ -405,7 +571,7 @@ output$test.simul.weightsum.plot <-  renderPlot({test.simul.weightsum.plot()})
   
   
   
-test.simul.balance.plot <-  eventReactive(input$goButton, {  # plot balance ####
+  test.simul.balance.plot <-  eventReactive(input$goButton, {  # plot balance ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -418,10 +584,10 @@ test.simul.balance.plot <-  eventReactive(input$goButton, {  # plot balance ####
       scale_x_continuous("Balance", limits = c(.0, .5)) + #, breaks = seq(.2, .4, .02)) + #) +
       scale_fill_grey(start = .4, end = .9) + ggtitle("Balance")
   })
-output$test.simul.balance.plot <- renderPlot({test.simul.balance.plot()})
+  output$test.simul.balance.plot <- renderPlot({test.simul.balance.plot()})
   
   
-test.simul.admixture.plot <- eventReactive(input$goButton, {   # plot admixture ####
+  test.simul.admixture.plot <- eventReactive(input$goButton, {   # plot admixture ####
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected() 
     
