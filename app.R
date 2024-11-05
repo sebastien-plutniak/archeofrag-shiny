@@ -44,7 +44,7 @@ ui <- shinyUI(fluidPage(  # UI ----
                                                    column(10, align="center",
                                                           tags$div(
                                                             HTML("<div style=width:400px;, align=left>
-                <h1><i>archeofrag-gui</i></h1>
+                <h1><i>archeofrag.gui</i></h1>
                 <p>
                 This application implemets some features of the
                 <i><a href=https://cran.r-project.org/web/packages/archeofrag/index.html target=_blank>archeofrag</a></i>
@@ -103,7 +103,7 @@ ui <- shinyUI(fluidPage(  # UI ----
                       <ul>
                       <li>Select the pair of spatial units to compare in the menu</li>
                       <li>The parameters of the simulation are automatically filled with the values measured on the graph corresponding to the two spatial units selected, but can be edited.</li>
-                      <li> Set the number of simulated graphs to generate by hypothesis, and click on the “Run” button. Using parallelization speeds up the computation (however, if an error appears, untick the box and be patient).</li>
+                      <li> Set the number of simulated graphs to generate for each hypothesis, and click on the “Run” button. Using parallelization speeds up the computation (however, if it raises an error, untick the box, re-run the computation and be patient).</li>
                       </ul>
                     </p>
                     <h3>Procedure</h3>
@@ -138,16 +138,17 @@ ui <- shinyUI(fluidPage(  # UI ----
                                                    fluidRow(
                                                     h2("Parameters set up"),
                                                     column(2, uiOutput("n.components")),
-                                                    column(4, uiOutput("components.balance")),
+                                                    column(3, uiOutput("components.balance")),
                                                   ),
                                                   fluidRow(
                                                     column(2, uiOutput("planar")),
-                                                    column(4, uiOutput("balance")),
-                                                    column(4, uiOutput("aggreg.factor"))
+                                                    column(3, uiOutput("balance")),
+                                                    column(3, uiOutput("aggreg.factor")),
+                                                    column(2, uiOutput("asymmetric"))
                                                   ), #end fluidrow
                                                   fluidRow(
                                                     column(2, uiOutput("n.final.fragments")),
-                                                    column(4, uiOutput("disturbance"))
+                                                    column(3, uiOutput("disturbance"))
                                                   ),
                                                   fluidRow(
                                                             h2("Computation set up"),
@@ -172,7 +173,28 @@ ui <- shinyUI(fluidPage(  # UI ----
                                                           imageOutput("test.simul.cohesion.plot", height = "400px", width= "100%")
                                                    ) # end column
                                                    ) # end fluidrow
-                                                   ) # end tabPanel
+                                                   ), # end tabPanel
+                                          tabPanel("R code", # R code ----
+                                                   column(12, 
+                                                          br(),
+                                                          HTML("The following R code runs the simulation with the current settings and returns a series of values for each hypothesis:
+                                                          <ul>
+                                                            <li>admixture</li>
+                                                            <li>cohesions value for the spatial units 1 and 2</li> 
+                                                            <li>number of refitting relations</li>
+                                                            <li>fragment balance</li>
+                                                            <li>disturbance</li> 
+                                                            <li>sum of relation weights</li>"),
+                                                          br(),
+                                                          HTML(paste("<div style=width:80%;, align=left>",
+                                                                     "<br><div style=\"font-family:Courier; font-size: small; width:100%;\", align=left>",
+                                                                     htmlOutput("reproducibility"),
+                                                                     "</div>",
+                                                                     "</div>"
+                                                          ) # end paste
+                                                          )  # end HTML
+                                                   ) # end column
+                                          ), #end tabPanel
                                           ), # end  tabsetPanel
                               width=10) # end mainPanel
                           ) #sidebarLayout
@@ -306,14 +328,20 @@ server <- function(input, output, session) {
                 value = input.graph.params()$aggreg.factor, width = "100%")
   })
   
+  output$asymmetric <- renderUI({
+    req(input.graph.params())
+    selectInput("asymmetric", "Asymmetric move from unit", choices = c("none", "1", "2"), selected = "none", width = "50%")
+  })
+  
   output$planar <- renderUI({
     req(input.graph.params())
     checkboxInput("planar", "Generate only planar graphs", value = input.graph.params()$planar)
   })
   
+
+# MEASUREMENT-----
   
-  
-stats.table <- reactive({    # Stats table ----
+stats.table <- reactive({    # stats table ----
     req(graph())
     g.list <- graph()
     
@@ -384,13 +412,16 @@ stats.table <- reactive({    # Stats table ----
   })
   
   
-  
-  hypotheses <- eventReactive(input$goButton, { # run simulations ####
+  # SIMULATION ####
+  hypotheses <- eventReactive(input$goButton, { # run simulation ####
     
     req(input$replications)
     req(graph.selected())
     graph <- graph.selected()
      
+    asymmetric <- input$asymmetric
+    if(asymmetric == "none") asymmetric <- NULL
+    
     params <- list("n.components" = input$n.components,
                    "n.final.fragments" = input$n.final.fragments,  
                    "balance" = input$balance,
@@ -401,7 +432,7 @@ stats.table <- reactive({    # Stats table ----
     
     if(input$parallelize){
     hypothese1.res <- foreach(i=1:input$replications,  .combine = "rbind",
-                              .errorhandling = "stop") %dopar%{
+                              .errorhandling = "remove") %dopar%{
                                 g <- frag.simul.process(initial.layers = 1,
                                                         n.components = params$n.components,
                                                         vertices = params$n.final.fragments,  
@@ -409,7 +440,8 @@ stats.table <- reactive({    # Stats table ----
                                                         components.balance = params$components.balance,
                                                         disturbance = params$disturbance,
                                                         aggreg.factor = params$aggreg.factor,
-                                                        planar = params$planar)
+                                                        planar = params$planar,
+                                                        asymmetric.transport.from = asymmetric)
                                 g <- frag.edges.weighting(g, "layer")
                                 inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
                                 data.frame(
@@ -432,7 +464,8 @@ stats.table <- reactive({    # Stats table ----
                                                         components.balance = params$components.balance,
                                                         disturbance = params$disturbance,
                                                         aggreg.factor = params$aggreg.factor,
-                                                        planar = params$planar)
+                                                        planar = params$planar,
+                                                        asymmetric.transport.from = asymmetric)
                                 g <- frag.edges.weighting(g, "layer")
                                 inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
                                 data.frame(
@@ -456,7 +489,8 @@ stats.table <- reactive({    # Stats table ----
                                                           components.balance = params$components.balance,
                                                           disturbance = params$disturbance,
                                                           aggreg.factor = params$aggreg.factor,
-                                                          planar = params$planar)
+                                                          planar = params$planar,
+                                                          asymmetric.transport.from = asymmetric)
                                   g <- frag.edges.weighting(g, "layer")
                                   inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
                                   data.frame(
@@ -479,7 +513,8 @@ stats.table <- reactive({    # Stats table ----
                                                           components.balance = params$components.balance,
                                                           disturbance = params$disturbance,
                                                           aggreg.factor = params$aggreg.factor,
-                                                          planar = params$planar)
+                                                          planar = params$planar,
+                                                          asymmetric.transport.from = asymmetric)
                                   g <- frag.edges.weighting(g, "layer")
                                   inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
                                   data.frame(
@@ -532,7 +567,7 @@ stats.table <- reactive({    # Stats table ----
       geom_density(alpha=.5, linewidth=.3) +
       scale_fill_grey(start = .4, end = .9) +
       geom_vline(xintercept = gsize(obs.graph))  + 
-      xlab("Edge count") + ggtitle("Edge count")
+      xlab("Relations count") + ggtitle("Relations count")
   })
   
   output$test.simul.edges.plot <- renderPlot({test.simul.edges.plot()})
@@ -547,7 +582,7 @@ stats.table <- reactive({    # Stats table ----
       geom_density(alpha=.5, linewidth=.3) +
       scale_fill_grey(start = .4, end = .9)  +
       geom_vline(xintercept = sum(E(obs.graph)$weight)) +
-      xlab("Edge weights sum") + ggtitle("Edge weighs sum")
+      xlab("Sum of relation weights") + ggtitle("Sum of relation weights")
   })
   
   output$test.simul.weightsum.plot <-  renderPlot({test.simul.weightsum.plot()})
@@ -630,6 +665,53 @@ stats.table <- reactive({    # Stats table ----
     req(graph.selected())
     frag.graph.plot(graph.selected(), layer.attr = "layer")
   })
+  
+  # SIMULATION CODE ----
+  
+  output$reproducibility <- reactive({
+    req(input$n.components)
+  
+    asymmetric <- input$asymmetric
+    if(asymmetric == "none") asymmetric <- "NULL"
+    
+    mode <- "%par%"
+    if(input$parallelize) mode <- "%dopar%"
+    
+  generate.run.code <- function(n.layers){  
+      paste0("<pre>",
+      "h", n.layers, " <- foreach(i=1:", input$replications, ", .combine = 'rbind', .errorhandling = 'remove') ", mode," {<br>",
+    "             g <- frag.simul.process(initial.layers = ", n.layers, ",\n",
+    "                                     n.components = ", input$n.components, ",<br>",
+    "                                     vertices = ", input$n.final.fragments, ",<br>",  
+    "                                     balance = ", input$balance, ",<br>",
+    "                                     components.balance = ", input$components.balance, ",<br>",
+    "                                     disturbance = ", input$disturbance, ",<br>",
+    "                                     aggreg.factor = ", input$aggreg.factor, ",<br>",
+    "                                     planar = ", input$planar, ",<br>",
+    "                                     asymmetric.transport.from = ", asymmetric, ")<br>",
+    "              g <- frag.edges.weighting(g, 'layer')<br>", 
+    "              inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]<br>",
+    "              data.frame(<br>",
+    "                 'admixture'       = round(frag.layers.admixture(g, 'layer'), 3),<br>",
+    "                 'cohesion'        = rbind(frag.layers.cohesion(g, 'layer')),<br>",
+    "                 'relations'       = igraph::gsize(g),<br>",
+    "                 'balance'         = sort(table(V(g)$layer))[1] / sum(table(V(g)$layer)),<br>",
+    "                 'disturbance'     = length(inter.layer.e) / igraph::gsize(g),<br>",
+    "                 'weights.sum'     = sum(E(g)$weight)<br>",
+    "              )<br>",
+    "            }", 
+       "</pre>")
+  }
+
+  parallel.string <- ""
+  if(input$parallelize) parallel.string <- "<br>library(doParallel)<br>registerDoParallel()"
+  
+  paste0("<pre>library(archeofrag) <br>library(foreach)", parallel.string, "</pre>",
+         generate.run.code(1), 
+         "<br><br>", 
+         generate.run.code(2))
+    
+  }) # end reactive
   
 }
 
