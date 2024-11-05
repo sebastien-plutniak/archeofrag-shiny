@@ -4,6 +4,7 @@ library(archeofrag)
 library(ggplot2)
 library(foreach)
 library(DT)
+library(reshape2) # for acast()
 library(dendextend)
 library(igraph) # for 
 library(tidyr) # for pivot_longer()
@@ -18,7 +19,6 @@ library(RBGL)
 library(doParallel)
 registerDoParallel()
 # getDoParWorkers()
-data(LiangAbu)
 
 ui <- shinyUI(fluidPage(  # UI ----
                           theme = shinytheme("cosmo"),  # slate  flatly
@@ -26,7 +26,8 @@ ui <- shinyUI(fluidPage(  # UI ----
                             sidebarPanel(                  
                               h3(div(HTML("<a href=https://github.com/sebastien-plutniak/archeofrag title='Go to the archeofrag page' target=_blank>archeofrag</a> v",  as.character(utils::packageVersion("archeofrag")) ))),
                               h3("Input data"),
-                              checkboxInput("use_example", "use example data", value = F),
+                              selectInput("use_example", "Load example data", 
+                                          choices = c("-", "Liang Abu", "Tai"), selected = "-"),
                               fileInput('inputEdges', 'Relations (CSV file):',
                                         width="70%",
                                         accept=c('text/csv', 'text/comma-separated-values,text/plain')),
@@ -43,30 +44,31 @@ ui <- shinyUI(fluidPage(  # UI ----
                                           tabPanel("Introduction", # Introduction ----      
                                                    column(10, align="center",
                                                           tags$div(
-                                                            HTML("<div style=width:400px;, align=left>
+                                                            HTML("<div style=width:40%;, align=left>
                 <h1><i>archeofrag.gui</i></h1>
                 <p>
-                This application implemets some features of the
-                <i><a href=https://cran.r-project.org/web/packages/archeofrag/index.html target=_blank>archeofrag</a></i>
-                R package for spatial analysis in archaeology from the study of refitting fragments of objects.  It includes methods to <b>evaluate and validate</b> the distinction between <b>archaeological spatial units</b> (e.g. layers), from the distribution and the topology of the refitting relationships between fragments contained in these units.
+                This application implements some features of the
+                <i><a href=https://cran.r-project.org/web/packages/archeofrag/index.html target=_blank>archeofrag</a></i> R package for spatial analysis in archaeology from the study of refitting fragments of objects. Based on the TSAR method (Topological Study of Archaeological Refitting),  it includes functions to <b>evaluate and validate</b> the distinction between <b>archaeological spatial units</b> (e.g. layers), from the distribution and the topology of the refitting relationships between fragments contained in these units.
                 </p>
                 <h3>Input Data</h3>
                 <p>
-                  Either upload your data or load the example data set (refitting data from the <a href=10.5281/zenodo.4719577 target=_blank>Liang Abu rock shelter</a>, Borneo). Use the menu on the left to upload your “relations” and “fragments” data as CSV files. 
+                  Use the menu on the left to upload your “relations” and “fragments” data as CSV files. 
                   <ul>
                     <li>The <b>relations</b> table must have a row for each refitting relationship and two columns containing the identifiers of each pair of refitting fragments, respectively;</li>
                   <li>the <b>fragments</b> table must have a row for each fragment, the first column contains its identifier and the second column contains the spatial unit it belongs to (name this column “layer”).</li>
                   </ul>
+                  Alternatively, load one of the example datasets.
                 </p>
                 <h3>Measurements</h3>
                 <p>In this tab, statistics are reported for all pairs of spatial units defined in the dataset: number of fragments and refitting relationships, etc. The <b>cohesion</b> and <b>admixture</b> values are calculated using the TSAR method. Tables and figures facilitate the exploration of the results</p>
                 <h3>Comparison with simulated data</h3>
                 <p>This tab includes functions for in-depth analysis of a specific pair of spatial units. This pair is compared to similar artificial data, simulated for two different formation hypothesis:
                 <ul>
-                    <li>H1, the archaeological material studied comes from a <b>single deposition event</b> (although archeaologists might have distinguished two spatial units / depositional events).</li>
+                    <li>H1, the archaeological material studied comes from a <b>single deposition event</b> (although archaeologists might have distinguished two spatial units / depositional events).</li>
                     <li>H2, the material was deposited during <b>two deposition events</b>.</li>
                 </ul>                    
                 <h1>References</h1>
+                <h2>About <i>archeofrag</i></h2>
                 <p>
                 The code and more information are available on <a target=_blank, href=https://github.com/sebastien-plutniak/archeofrag/>github</a> and in the following publications:
                 <ul>
@@ -76,7 +78,14 @@ ui <- shinyUI(fluidPage(  # UI ----
                   <li>Plutniak, S. 2022. “<a href=http://www.prehistoire.org/offres/doc_inline_src/515/0-BSPF_2022_1_2e_partie_Correspondance_PLUTNIAK.pdf target=_blank>L'analyse topologique des remontages archéologiques : la méthode TSAR et le package R archeofrag</a>”, <i>Bulletin de la Société préhistorique française</i>, 119 (1), p. 110–113.</li>
                   <li>Plutniak, S., J. Caro, C. Manen 2023. “<a href=https://hal.science/hal-04355706 target=_blank>Four Problems for Archaeological Fragmentation Studies. Discussion and Application to the Taï Cave’s Neolithic Pottery Material (France)</a>”, in A. Sörman, A. Noterman, M. Fjellström (eds.) <i>Broken Bodies, Places and Objects. New Perspectives on Fragmentation in Archaeology</i>, London: Routledge, p. 124–142. DOI: <a href=https://doi.org/10.4324/9781003350026-1 target=_blank>10.4324/9781003350026-11</a>.</li>
                 </ul>
-                </p></div>"))
+                </p>
+                <h2>Datasets</h2> 
+                <ul>
+                  <li><b>Liang Abu</b>: Plutniak S. 2021. “Refitting Pottery Fragments from the Liang Abu Rockshelter, Borneo”. DOI: <a href=https://doi.org/10.5281/zenodo.4719577 target=_blank>10.5281/zenodo.4719577</a> </li>
+                  <li><b>Taï</b>:  Caro J., Plutniak S. 2022. “Refitting and Matching Neolithic Pottery Fragments from the Taï site, France”. DOI:  <a href=https://doi.org/10.5281/zenodo.7408706 target=_blank>10.5281/zenodo.7408706</a> </li>
+                </ul>
+                <br>
+                                                                 </div>"))
                                                    ) # end column
                                           ), #end tabPanel
                                           
@@ -94,11 +103,11 @@ ui <- shinyUI(fluidPage(  # UI ----
                                           ), #end tabPanel
                                           tabPanel("Simulation", # Simulation ---- 
                                                    fluidRow(
-                                                     h2("Information"),
+                                                     h1("Information"),
                                                    column(10, align="center",
                                                           tags$div(
-                                                            HTML("<div style=width:500px;, align=left>
-                    <h3>Instruction</h3>
+                                                            HTML("<div style=width:40%;, align=left>
+                    <h2>Instruction</h2>
                     <p>
                       <ul>
                       <li>Select the pair of spatial units to compare in the menu</li>
@@ -106,7 +115,7 @@ ui <- shinyUI(fluidPage(  # UI ----
                       <li> Set the number of simulated graphs to generate for each hypothesis, and click on the “Run” button. Using parallelization speeds up the computation (however, if it raises an error, untick the box, re-run the computation and be patient).</li>
                       </ul>
                     </p>
-                    <h3>Procedure</h3>
+                    <h2>Procedure</h2>
                     <p>
                     Parameters (number of objects, fragment balance, etc.) are extracted from the input graph for the pair of spatial units under study, and used to generate a series of artificial graphs. Artificial graphs are generated for two deposition hypotheses:
                     <ol type='1'>
@@ -115,7 +124,7 @@ ui <- shinyUI(fluidPage(  # UI ----
                     </ol>
                     </p>
                     <p>
-                    <h3>Results</h3>
+                    <h2>Results</h2>
                     The table below summarises the results for each parameter, indicating 
                    <ul>
                      <li>whether the simulated values for H1 and H2 are significantly different (<a href=https://en.wikipedia.org/wiki/Wilcoxon_signed-rank_test target=_blank>Wilcoxon test</a>, “H1 != H2?” and “p.value” columns), and 
@@ -228,9 +237,16 @@ server <- function(input, output, session) {
   
   graph.data <- reactive({
     
-    if(input$use_example == T){
-      edges.df <- df.cr
-      objects.df <- fragments.info
+    if(input$use_example != "-") {
+      if(input$use_example == "Liang Abu"){
+        data(LiangAbu)
+        edges.df <- df.cr
+        objects.df <- fragments.info
+      } else if(input$use_example == "Tai"){
+        data(Tai)
+        edges.df <- tai.connection
+        objects.df <- tai.fragments
+      }
     } else {
       query <- shiny::parseQueryString(session$clientData$url_search)
       
@@ -375,31 +391,43 @@ stats.table <- reactive({    # stats table ----
   })
   
   admixTab <- reactive({  # admix table ----
-    req(graph.data())
-    var.names <- sort(unique(graph.data()$objects.df$layer))
-    admix.matrix <- matrix(ncol = length(var.names),
-                           nrow = length(var.names))
+    req(stats.table(), graph.data())
+    # browser()
+    stats.table <- stats.table()
     
-    rownames(admix.matrix) <- colnames(admix.matrix) <- var.names
-    admix.matrix[lower.tri(admix.matrix) ]  <- stats.table()$Admixture
-    as.dist(admix.matrix)
+    stats.table$unit1 <- gsub("(.*) / .*", "\\1", stats.table[,1])
+    stats.table$unit2 <- gsub("^.* / (.*$)", "\\1", stats.table[,1])
+    
+    pairs <- combn(sort(unique(graph.data()$objects.df$layer)), 2)
+    pairs <- t(as.data.frame(pairs))
+    pairs <- rbind(pairs, pairs[, 2:1])
+    
+    colnames(pairs) <- c("unit1", "unit2")
+    pairs <- merge(pairs,
+                   stats.table[, c("Admixture", "unit1", "unit2")], 
+                   by = c("unit1", "unit2"), all.x = T)
+    
+    
+    reshape2::acast(pairs, unit2 ~ unit1, value.var = "Admixture", na.rm = F, drop = F)
   })
   
   output$admixTab <- renderTable({ 
     req(admixTab())
-    admixTab <- as.matrix(admixTab())
-    admixTab[upper.tri(admixTab, diag = T)] <- NA
-    admixTab
+    admixTab()
   }, rownames = T, colnames = T, na = "-")
-  
   
   
   output$admix.plot <- renderPlot({  # admix plot ----
     req(admixTab())
+    admixTab <- 1 - admixTab()
+    admixTab[is.na(admixTab)] <- 1
     
-    as.dendrogram(hclust(1 - admixTab()), method = "complete") %>% 
-      sort(decreasing = T) %>%
-      plot(horiz = T, xlab ="Distance: 1 – admixture. An alphanumerical ordering constraint is applied to the branches of the dendrogram") 
+    admixTab <- as.dist(admixTab)
+    
+    dend.plot <- as.dendrogram(hclust(admixTab, method = "complete"))
+    dend.plot <- sort(dend.plot, decreasing = T)
+    plot(dend.plot, horiz = T, 
+         xlab ="Distance: 1 – admixture. An alphanumerical ordering constraint is applied to the branches of the dendrogram") 
   })
   
   
@@ -699,7 +727,7 @@ stats.table <- reactive({    # stats table ----
     "                 'disturbance'     = length(inter.layer.e) / igraph::gsize(g),<br>",
     "                 'weights.sum'     = sum(E(g)$weight)<br>",
     "              )<br>",
-    "            }", 
+    "       }", 
        "</pre>")
   }
 
