@@ -28,6 +28,7 @@ ui <- shinyUI(fluidPage(  # UI ----
                               h3("Input data"),
                               selectInput("use_example", "Load example data", 
                                           choices = c("-", "Liang Abu", "Tai"), selected = "-"),
+                              uiOutput("layers.selector"),
                               fileInput('inputEdges', 'Relations (CSV file):',
                                         width="70%",
                                         accept=c('text/csv', 'text/comma-separated-values,text/plain')),
@@ -140,12 +141,12 @@ ui <- shinyUI(fluidPage(  # UI ----
                  </div>") )
                                                    ) # end column
                                                    ), # end fluidrow
+                                                   # fluidRow(
+                                                   #   h2("Pair of spatial units"),
+                                                   #   column(2, uiOutput("layers.selector")),
+                                                   # ),
                                                    fluidRow(
-                                                     h2("Pair of spatial units"),
-                                                     column(2, uiOutput("layers.selector")),
-                                                   ),
-                                                   fluidRow(
-                                                    h2("Parameters set up"),
+                                                    h2("Model parameters set up"),
                                                     column(2, uiOutput("n.components")),
                                                     column(3, uiOutput("components.balance")),
                                                   ),
@@ -363,10 +364,9 @@ stats.table <- reactive({    # stats table ----
     
     make.stat.table <- function(g){
       balance <- NA
-      if(gorder(g) > 6){
+      if(igraph::gorder(g) > 6){
         balance <- frag.get.parameters(g, "layer")$balance
       }
-      
       cohesion <- frag.layers.cohesion(g, "layer")
       data.frame(
         "Pair of spatial units" = paste(sort(unique(V(g)$layer)), collapse=" / "),
@@ -387,12 +387,12 @@ stats.table <- reactive({    # stats table ----
   })
   
   output$resultsTab <- DT::renderDataTable({ 
-    DT::datatable(stats.table(), rownames=F,  escape=F, style = "default", selection = 'none',  options = list(dom = 't'))
+    DT::datatable(stats.table(), rownames=F,  escape=F, style = "default", selection = 'none',
+                  options = list(dom = 'tp'))
   })
   
   admixTab <- reactive({  # admix table ----
     req(stats.table(), graph.data())
-    # browser()
     stats.table <- stats.table()
     
     stats.table$unit1 <- gsub("(.*) / .*", "\\1", stats.table[,1])
@@ -427,7 +427,7 @@ stats.table <- reactive({    # stats table ----
     dend.plot <- as.dendrogram(hclust(admixTab, method = "complete"))
     dend.plot <- sort(dend.plot, decreasing = T)
     plot(dend.plot, horiz = T, 
-         xlab ="Distance: 1 – admixture. An alphanumerical ordering constraint is applied to the branches of the dendrogram") 
+         xlab ="Dissimilarity: 1 – admixture. An alphanumerical ordering constraint is applied to the branches of the dendrogram") 
   })
   
   
