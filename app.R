@@ -5,8 +5,7 @@ library(ggplot2)
 library(foreach)
 library(DT)
 library(reshape2) # for acast()
-library(dendextend)
-library(igraph) # for 
+library(igraph) # for gsize
 library(tidyr) # for pivot_longer()
 if( ! requireNamespace("RBGL")){
   if( ! requireNamespace("BiocManager")){
@@ -17,17 +16,20 @@ if( ! requireNamespace("RBGL")){
 library(RBGL)
 
 library(doParallel)
-registerDoParallel()
-# getDoParWorkers()
+registerDoParallel() # by defautl, half of detectCores()
+# getDoParWorkers() 
+# detectCores()
 
 ui <- shinyUI(fluidPage(  # UI ----
                           theme = shinytheme("cosmo"),  # slate  flatly
                           sidebarLayout(
                             sidebarPanel(                  
-                              h3(div(HTML("<a href=https://github.com/sebastien-plutniak/archeofrag title='Go to the archeofrag page' target=_blank>archeofrag</a> v",  as.character(utils::packageVersion("archeofrag")) ))),
+                              h3(div(HTML("<a href=https://github.com/sebastien-plutniak/archeofrag-gui title='Go to the archeofrag page' target=_blank>archeofrag-gui</a> v",  as.character(utils::packageVersion("archeofrag")) ))),
+                              div(HTML("Using <a href=https://github.com/sebastien-plutniak/archeofrag title='Go to the archeofrag page' target=_blank>archeofrag</a> v",  as.character(utils::packageVersion("archeofrag")) )),
                               h3("Input data"),
                               selectInput("use_example", "Load example data", 
-                                          choices = c("-", "Liang Abu", "Tai"), selected = "-"),
+                                          choices = c("-", "Font-Juvénal", "Liang Abu", "Tai"), selected = "-"),
+                              uiOutput("variable.selector"),
                               uiOutput("layers.selector"),
                               fileInput('inputEdges', 'Relations (CSV file):',
                                         width="70%",
@@ -46,10 +48,10 @@ ui <- shinyUI(fluidPage(  # UI ----
                                                    column(10, align="center",
                                                           tags$div(
                                                             HTML("<div style=width:40%;, align=left>
-                <h1><i>archeofrag.gui</i></h1>
+                <h1><i>archeofrag-gui</i></h1>
                 <p>
                 This application implements some features of the
-                <i><a href=https://cran.r-project.org/web/packages/archeofrag/index.html target=_blank>archeofrag</a></i> R package for spatial analysis in archaeology from the study of refitting fragments of objects. Based on the TSAR method (Topological Study of Archaeological Refitting),  it includes functions to <b>evaluate and validate</b> the distinction between <b>archaeological spatial units</b> (e.g. layers), from the distribution and the topology of the refitting relationships between fragments contained in these units.
+                <i><a href=https://cran.r-project.org/web/packages/archeofrag/index.html target=_blank>archeofrag</a></i> R package for spatial analysis in archaeology from the study of refitting fragments of objects. Based on the TSAR method (Topological Study of Archaeological Refitting),  it includes functions to <b>evaluate and validate</b> the distinction between <b>archaeological spatial units</b> (e.g. layers), from the distribution and the topology of the refitting relationships between the fragments contained in these units.
                 </p>
                 <h3>Input Data</h3>
                 <p>
@@ -82,6 +84,7 @@ ui <- shinyUI(fluidPage(  # UI ----
                 </p>
                 <h2>Datasets</h2> 
                 <ul>
+                  <li><b>Font-Juvénal</b>:  Caro J. 2020. <i>Productions céramiques et dynamiques des sociétés au Ve millénaire avant notre ère : la transition du Néolithique ancien au Néolithique moyen dans le bassin Nord-occidental de la Méditerranée</i>. PhD Dissertation, Toulouse University, HAL:  <a href=https://theses.hal.science/tel-03613599  target=_blank>tel-036135996</a> </li>                
                   <li><b>Liang Abu</b>: Plutniak S. 2021. “Refitting Pottery Fragments from the Liang Abu Rockshelter, Borneo”. DOI: <a href=https://doi.org/10.5281/zenodo.4719577 target=_blank>10.5281/zenodo.4719577</a> </li>
                   <li><b>Taï</b>:  Caro J., Plutniak S. 2022. “Refitting and Matching Neolithic Pottery Fragments from the Taï site, France”. DOI:  <a href=https://doi.org/10.5281/zenodo.7408706 target=_blank>10.5281/zenodo.7408706</a> </li>
                 </ul>
@@ -141,10 +144,6 @@ ui <- shinyUI(fluidPage(  # UI ----
                  </div>") )
                                                    ) # end column
                                                    ), # end fluidrow
-                                                   # fluidRow(
-                                                   #   h2("Pair of spatial units"),
-                                                   #   column(2, uiOutput("layers.selector")),
-                                                   # ),
                                                    fluidRow(
                                                     h2("Model parameters set up"),
                                                     column(2, uiOutput("n.components")),
@@ -247,7 +246,11 @@ server <- function(input, output, session) {
         data(Tai)
         edges.df <- tai.connection
         objects.df <- tai.fragments
-      }
+      } else if(input$use_example == "Font-Juvénal"){
+        data(Fontjuvenal)
+        edges.df <- fontjuvenal.connection
+        objects.df <- fontjuvenal.fragments
+      }      
     } else {
       query <- shiny::parseQueryString(session$clientData$url_search)
       
@@ -265,24 +268,59 @@ server <- function(input, output, session) {
     list("objects.df"=objects.df, "edges.df"=edges.df)
   })
   
-  
-  graph <- reactive({
+  # spatial variable selector ----
+  output$variable.selector <- renderUI({
     req(graph.data())
     
-    graph.data <- graph.data()
-    objects.df <- graph.data$objects.df
-    edges.df <- graph.data$edges.df
+    g.data <- graph.data()
+    objects.df <- g.data$objects.df
+
+    choices.val <- names(objects.df)
+    names(choices.val) <- names(choices.val)
+    
+    default.value <- choices.val[1]
+    if(sum("layer" %in% choices.val) > 0 ){
+      default.value <- "layer"
+    } else if(sum("level" %in% choices.val) > 0 ){
+      default.value <- "level"
+    }
+    
+    selectInput("spatial.variable", "Spatial variable",
+                selected = default.value,
+                choices = choices.val, width= "90%")
+  })
+  
+  graph.data2 <- reactive({ # add spatial variable ----
+    req(input$spatial.variable)
+    
+    g.data <- graph.data()
+    objects.df <- g.data$objects.df
+    
+    objects.df$spatial.variable <- as.character(eval(parse(text = paste0("objects.df$", input$spatial.variable ))))
+    
+    list("objects.df"=objects.df, "edges.df"=g.data$edges.df)
+  })
+  
+  
+  graph <- reactive({ # create graph ----
+    req(graph.data2)
+    
+    g.data <- graph.data2()
+    objects.df <- g.data$objects.df
+    edges.df <- g.data$edges.df
     
     graph <- make_frag_object(edges.df, fragments = objects.df)
     graph <- make_cr_graph(graph)
     
-    pairs <- combn(sort(unique(V(graph)$layer)), 2)
+    pairs <- combn(sort(unique(V(graph)$spatial.variable)), 2)
+    
     
     g.list <- lapply(1:ncol(pairs), function(x){
-      g <- frag.get.layers.pair(graph, "layer", pairs[, x]  )
-      if(length(unique(V(g)$layer)) != 2){ return() }
+      g <- frag.get.layers.pair(graph, "spatial.variable", pairs[, x]  )
+      if(is.null(g)) {return() }
+      if(length(unique(V(g)$spatial.variable)) != 2){ return() }
       
-      frag.edges.weighting(g, "layer")
+      frag.edges.weighting(g, "spatial.variable")
     })
     names(g.list) <- sapply(1:ncol(pairs), function(x)
       paste(pairs[1, x], "/", pairs[2, x]))
@@ -290,6 +328,7 @@ server <- function(input, output, session) {
     g.list[ ! sapply(g.list, is.null)]
   })
   
+
   # pair selector ----
   output$layers.selector <- renderUI({
     req(graph())
@@ -307,7 +346,7 @@ server <- function(input, output, session) {
   
   input.graph.params <- reactive({ # input graph params ----
     req(graph.selected())
-    frag.get.parameters(graph.selected(), "layer")
+    frag.get.parameters(graph.selected(), "spatial.variable")
   })
   
   output$n.components <- renderUI({
@@ -365,18 +404,21 @@ stats.table <- reactive({    # stats table ----
     make.stat.table <- function(g){
       balance <- NA
       if(igraph::gorder(g) > 6){
-        balance <- frag.get.parameters(g, "layer")$balance
+        balance <- frag.get.parameters(g, "spatial.variable")$balance
       }
-      cohesion <- frag.layers.cohesion(g, "layer")
+      cohesion <- round(frag.layers.cohesion(g, "spatial.variable"), 2)
+      cohesion.ratio <- sort(cohesion)
+      cohesion.ratio <- cohesion.ratio[2] / cohesion.ratio[1]
       data.frame(
-        "Pair of spatial units" = paste(sort(unique(V(g)$layer)), collapse=" / "),
+        "Pair of spatial units" = paste(sort(unique(V(g)$spatial.variable)), collapse=" / "),
         "Objects" =  as.integer(igraph::count_components(g)),
         "Fragments" = as.integer(igraph::gorder(g)),
         "Relations" = as.integer(igraph::gsize(g)),
         "Balance" = balance,
         "Cohesion 1st unit" = cohesion[1],
         "Cohesion 2nd unit" = cohesion[2],
-        "Admixture" =  frag.layers.admixture(g, "layer")
+        "Cohesion ratio" = round(cohesion.ratio, 1),
+        "Admixture" =  round(frag.layers.admixture(g, "spatial.variable"), 2)
       )
     }
     
@@ -392,13 +434,13 @@ stats.table <- reactive({    # stats table ----
   })
   
   admixTab <- reactive({  # admix table ----
-    req(stats.table(), graph.data())
+    req(stats.table(), graph.data2())
     stats.table <- stats.table()
     
     stats.table$unit1 <- gsub("(.*) / .*", "\\1", stats.table[,1])
     stats.table$unit2 <- gsub("^.* / (.*$)", "\\1", stats.table[,1])
     
-    pairs <- combn(sort(unique(graph.data()$objects.df$layer)), 2)
+    pairs <- combn(sort(unique(graph.data2()$objects.df$spatial.variable)), 2)
     pairs <- t(as.data.frame(pairs))
     pairs <- rbind(pairs, pairs[, 2:1])
     
@@ -470,14 +512,14 @@ stats.table <- reactive({    # stats table ----
                                                         aggreg.factor = params$aggreg.factor,
                                                         planar = params$planar,
                                                         asymmetric.transport.from = asymmetric)
-                                g <- frag.edges.weighting(g, "layer")
-                                inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
+                                g <- frag.edges.weighting(g, "spatial.variable")
+                                inter.layer.e <- E(g)[V(g)[V(g)$spatial.variable == 1] %--% V(g)[V(g)$spatial.variable == 2]]
                                 data.frame(
-                                  "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
-                                  "cohes" = rbind(frag.layers.cohesion(g, "layer")),
+                                  "structural_admixture" = round(frag.layers.admixture(g, "spatial.variable"), 3),
+                                  "cohes" = rbind(frag.layers.cohesion(g, "spatial.variable")),
                                   "v.obs" = igraph::gorder(g),
                                   "e.obs" = igraph::gsize(g),
-                                  "bal.obs" = sort(table(V(g)$layer))[1] / sum(table(V(g)$layer)),
+                                  "bal.obs" = sort(table(V(g)$spatial.variable))[1] / sum(table(V(g)$spatial.variable)),
                                   "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
                                   "weightsum" = sum(E(g)$weight)
                                 )
@@ -494,15 +536,15 @@ stats.table <- reactive({    # stats table ----
                                                         aggreg.factor = params$aggreg.factor,
                                                         planar = params$planar,
                                                         asymmetric.transport.from = asymmetric)
-                                g <- frag.edges.weighting(g, "layer")
-                                inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
+                                g <- frag.edges.weighting(g, "spatial.variable")
+                                inter.layer.e <- E(g)[V(g)[V(g)$spatial.variable == 1] %--% V(g)[V(g)$spatial.variable == 2]]
                                 data.frame(
-                                  "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
-                                  "cohes" = rbind(frag.layers.cohesion(g, "layer")),
+                                  "structural_admixture" = round(frag.layers.admixture(g, "spatial.variable"), 3),
+                                  "cohes" = rbind(frag.layers.cohesion(g, "spatial.variable")),
                                   "v.obs" = gorder(g),
                                   "e.obs" = gsize(g),
-                                  "bal.obs" = sort(table(V(g)$layer))[1] / sum(table(V(g)$layer)),
-                                  "dist.obs" = length(inter.layer.e) / gsize(g),
+                                  "bal.obs" = sort(table(V(g)$spatial.variable))[1] / sum(table(V(g)$spatial.variable)),
+                                  "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
                                   "weightsum" = sum(E(g)$weight)
                                 )
                               }
@@ -519,14 +561,14 @@ stats.table <- reactive({    # stats table ----
                                                           aggreg.factor = params$aggreg.factor,
                                                           planar = params$planar,
                                                           asymmetric.transport.from = asymmetric)
-                                  g <- frag.edges.weighting(g, "layer")
-                                  inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
+                                  g <- frag.edges.weighting(g, "spatial.variable")
+                                  inter.layer.e <- E(g)[V(g)[V(g)$spatial.variable == 1] %--% V(g)[V(g)$spatial.variable == 2]]
                                   data.frame(
-                                    "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
-                                    "cohes" = rbind(frag.layers.cohesion(g, "layer")),
+                                    "structural_admixture" = round(frag.layers.admixture(g, "spatial.variable"), 3),
+                                    "cohes" = rbind(frag.layers.cohesion(g, "spatial.variable")),
                                     "v.obs" = igraph::gorder(g),
                                     "e.obs" = igraph::gsize(g),
-                                    "bal.obs" = sort(table(V(g)$layer))[1] / sum(table(V(g)$layer)),
+                                    "bal.obs" = sort(table(V(g)$spatial.variable))[1] / sum(table(V(g)$spatial.variable)),
                                     "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
                                     "weightsum" = sum(E(g)$weight)
                                   )
@@ -543,15 +585,15 @@ stats.table <- reactive({    # stats table ----
                                                           aggreg.factor = params$aggreg.factor,
                                                           planar = params$planar,
                                                           asymmetric.transport.from = asymmetric)
-                                  g <- frag.edges.weighting(g, "layer")
-                                  inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]
+                                  g <- frag.edges.weighting(g, "spatial.variable")
+                                  inter.layer.e <- E(g)[V(g)[V(g)$spatial.variable == 1] %--% V(g)[V(g)$spatial.variable == 2]]
                                   data.frame(
-                                    "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
-                                    "cohes" = rbind(frag.layers.cohesion(g, "layer")),
+                                    "structural_admixture" = round(frag.layers.admixture(g, "spatial.variable"), 3),
+                                    "cohes" = rbind(frag.layers.cohesion(g, "spatial.variable")),
                                     "v.obs" = gorder(g),
                                     "e.obs" = gsize(g),
-                                    "bal.obs" = sort(table(V(g)$layer))[1] / sum(table(V(g)$layer)),
-                                    "dist.obs" = length(inter.layer.e) / gsize(g),
+                                    "bal.obs" = sort(table(V(g)$spatial.variable))[1] / sum(table(V(g)$spatial.variable)),
+                                    "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
                                     "weightsum" = sum(E(g)$weight)
                                   )
                                 }
@@ -572,7 +614,7 @@ stats.table <- reactive({    # stats table ----
     colnames(hypotheses.df) <- c("admixture", "cohesion1", "cohesion2",  "edges", "balance", "disturbance", "weightsum","hypothesis")
     
     summary.df <- frag.simul.summarise(graph.selected(), 
-                                       layer.attr = "layer", 
+                                       layer.attr = "spatial.variable", 
                                        res.h1 = hypotheses.df[hypotheses.df$hypothesis == "1", -8], 
                                        res.h2 = hypotheses.df[hypotheses.df$hypothesis == "2", -8], 
                                        cohesion1.attr="cohesion1", cohesion2.attr="cohesion2", 
@@ -620,7 +662,7 @@ stats.table <- reactive({    # stats table ----
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
-    stats <- frag.get.parameters(obs.graph, "layer")
+    stats <- frag.get.parameters(obs.graph, "spatial.variable")
     
     ggplot(hypotheses.df, aes(x= dist.obs, fill= hypothesis)) +
       theme_light(base_size = 12) +
@@ -638,7 +680,7 @@ stats.table <- reactive({    # stats table ----
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
-    stats <- frag.get.parameters(obs.graph, "layer")
+    stats <- frag.get.parameters(obs.graph, "spatial.variable")
     
     ggplot(hypotheses.df, aes(x= bal.obs, fill = hypothesis)) +
       theme_light(base_size = 12) +
@@ -658,7 +700,7 @@ stats.table <- reactive({    # stats table ----
       theme_light(base_size = 12) +
       geom_density(alpha=.5, linewidth=.3) +
       scale_fill_grey("Hypothesis", start = .4, end = .9) +
-      geom_vline(xintercept = round(frag.layers.admixture(obs.graph, "layer"), 3)) +
+      geom_vline(xintercept = round(frag.layers.admixture(obs.graph, "spatial.variable"), 3)) +
       xlab("Admixture") + ggtitle("Admixture")
   })
   
@@ -670,18 +712,18 @@ stats.table <- reactive({    # stats table ----
     obs.graph <- graph.selected()
     
     hypotheses.df2 <- pivot_longer(hypotheses.df, c("cohes.cohesion1", "cohes.cohesion2"),
-                                   names_to = "Layer")
+                                   names_to = "spatial.variable")
     hypotheses.df2$Layer <- factor(hypotheses.df2$Layer, labels = c("1", "2"))
     hypotheses.df2$hypothesis <- factor(hypotheses.df2$hypothesis, 
                                         labels=c("Hypothesis 1", "Hypothesis 2"))
     
-    ggplot(hypotheses.df2, aes(x = value, fill=Layer, linetype=Layer)) +
+    ggplot(hypotheses.df2, aes(x = value, fill=Layer, linetype=spatial.variable)) +
       theme_light(base_size = 12) +
       geom_density(alpha=.5, linewidth=.3) +
       geom_boxplot(outlier.shape = 21) +
       scale_fill_grey(start = .9, end = .4) +
-      geom_vline(xintercept = frag.layers.cohesion(obs.graph, "layer")[1], linetype=1) +
-      geom_vline(xintercept = frag.layers.cohesion(obs.graph, "layer")[2], linetype=2) +
+      geom_vline(xintercept = frag.layers.cohesion(obs.graph, "spatial.variable")[1], linetype=1) +
+      geom_vline(xintercept = frag.layers.cohesion(obs.graph, "spatial.variable")[2], linetype=2) +
       facet_wrap(~hypothesis, ncol=1) +
       scale_x_continuous("Cohesion", limits=c(0,1)) + ggtitle("Cohesion")
   })
@@ -691,7 +733,7 @@ stats.table <- reactive({    # stats table ----
   
   output$visualisation.plot <- renderPlot({   # VISUALISATION ####
     req(graph.selected())
-    frag.graph.plot(graph.selected(), layer.attr = "layer")
+    frag.graph.plot(graph.selected(), layer.attr = "spatial.variable")
   })
   
   # SIMULATION CODE ----
@@ -717,13 +759,13 @@ stats.table <- reactive({    # stats table ----
     "                                     aggreg.factor = ", input$aggreg.factor, ",<br>",
     "                                     planar = ", input$planar, ",<br>",
     "                                     asymmetric.transport.from = ", asymmetric, ")<br>",
-    "              g <- frag.edges.weighting(g, 'layer')<br>", 
-    "              inter.layer.e <- E(g)[V(g)[V(g)$layer == 1] %--% V(g)[V(g)$layer == 2]]<br>",
+    "              g <- frag.edges.weighting(g, '", input$spatial.variable, "')<br>", 
+    "              inter.layer.e <- E(g)[V(g)[V(g)$", input$spatial.variable, " == 1] %--% V(g)[V(g)$", input$spatial.variable, " == 2]]<br>",
     "              data.frame(<br>",
-    "                 'admixture'       = round(frag.layers.admixture(g, 'layer'), 3),<br>",
-    "                 'cohesion'        = rbind(frag.layers.cohesion(g, 'layer')),<br>",
+    "                 'admixture'       = round(frag.layers.admixture(g, '", input$spatial.variable, "'), 3),<br>",
+    "                 'cohesion'        = rbind(frag.layers.cohesion(g, '", input$spatial.variable, "')),<br>",
     "                 'relations'       = igraph::gsize(g),<br>",
-    "                 'balance'         = sort(table(V(g)$layer))[1] / sum(table(V(g)$layer)),<br>",
+    "                 'balance'         = sort(table(V(g)$", input$spatial.variable, "))[1] / sum(table(V(g)$", input$spatial.variable, ")),<br>",
     "                 'disturbance'     = length(inter.layer.e) / igraph::gsize(g),<br>",
     "                 'weights.sum'     = sum(E(g)$weight)<br>",
     "              )<br>",
