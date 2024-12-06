@@ -1,0 +1,14 @@
+..Rcheck
+.git
+.github
+.gitignore
+README.Rmd
+README.md
+man/figures
+cran-comments.md
+.travis.yml
+codecov.yaml
+^Meta$
+^doc$
+LICENSE.md
+TODO.txt
