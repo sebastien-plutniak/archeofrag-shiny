@@ -364,103 +364,80 @@ stats.table <- reactive({    # stats table ----
                    "disturbance" = input$disturbance,
                    "aggreg.factor" = input$aggreg.factor,
                    "planar" = input$planar)
+
+ # Function to exetute the simulation and retrieve some measures:
+ exec.simulation  <- function(initial.layers, n.components, vertices,
+                              balance, components.balance, disturbance,
+                              aggreg.factor, planar, asymmetric.transport.from){
+      g <- frag.simul.process(initial.layers, n.components, vertices, edges = Inf,
+                              balance, components.balance, disturbance,
+                              aggreg.factor, planar, asymmetric.transport.from)
+      g <- frag.edges.weighting(g, "layer")
+      inter.layer.e <- igraph::E(g)[igraph::V(g)[igraph::V(g)$layer == 1] %--% igraph::V(g)[igraph::V(g)$layer == 2]]
+      data.frame(
+        "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
+        "cohes" = rbind(frag.layers.cohesion(g, "layer")),
+        "v.obs" = igraph::gorder(g),
+        "e.obs" = igraph::gsize(g),
+        "bal.obs" = sort(table(igraph::V(g)$layer))[1] / sum(table(igraph::V(g)$layer)),
+        "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
+        "weightsum" = sum(igraph::E(g)$weight)
+      )    
+    }
     
+        
     if(input$parallelize){
     hypothese1.res <- foreach(i = seq(1, input$replications),  .combine = "rbind",
                               .errorhandling = "remove") %dopar%{
-                                g <- frag.simul.process(initial.layers = 1,
-                                                        n.components = params$n.components,
-                                                        vertices = params$n.final.fragments,  
-                                                        balance = params$balance,
-                                                        components.balance = params$components.balance,
-                                                        disturbance = params$disturbance,
-                                                        aggreg.factor = params$aggreg.factor,
-                                                        planar = params$planar,
-                                                        asymmetric.transport.from = asymmetric)
-                                g <- frag.edges.weighting(g, "layer")
-                                inter.layer.e <- igraph::E(g)[igraph::V(g)[igraph::V(g)$layer == 1] %--% igraph::V(g)[igraph::V(g)$layer == 2]]
-                                data.frame(
-                                  "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
-                                  "cohes" = rbind(frag.layers.cohesion(g, "layer")),
-                                  "v.obs" = igraph::gorder(g),
-                                  "e.obs" = igraph::gsize(g),
-                                  "bal.obs" = sort(table(igraph::V(g)$layer))[1] / sum(table(igraph::V(g)$layer)),
-                                  "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
-                                  "weightsum" = sum(igraph::E(g)$weight)
-                                )
+                                exec.simulation(initial.layers = 1,
+                                                n.components = params$n.components,
+                                                vertices = params$n.final.fragments,  
+                                                balance = params$balance,
+                                                components.balance = params$components.balance,
+                                                disturbance = params$disturbance,
+                                                aggreg.factor = params$aggreg.factor,
+                                                planar = params$planar,
+                                                asymmetric.transport.from = asymmetric)
                               }
     
     hypothese2.res <- foreach(i = seq(1, input$replications), .combine = "rbind",
                               .errorhandling = "remove") %dopar%{
-                                g <- frag.simul.process(initial.layers = 2,
-                                                        n.components = params$n.components,
-                                                        vertices = params$n.final.fragments,  
-                                                        balance = params$balance,
-                                                        components.balance = params$components.balance,
-                                                        disturbance = params$disturbance,
-                                                        aggreg.factor = params$aggreg.factor,
-                                                        planar = params$planar,
-                                                        asymmetric.transport.from = asymmetric)
-                                g <- frag.edges.weighting(g, "layer")
-                                inter.layer.e <- igraph::E(g)[igraph::V(g)[igraph::V(g)$layer == 1] %--% igraph::V(g)[igraph::V(g)$layer == 2]]
-                                data.frame(
-                                  "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
-                                  "cohes" = rbind(frag.layers.cohesion(g, "layer")),
-                                  "v.obs" = igraph::gorder(g),
-                                  "e.obs" = igraph::gsize(g),
-                                  "bal.obs" = sort(table(igraph::V(g)$layer))[1] / sum(table(igraph::V(g)$layer)),
-                                  "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
-                                  "weightsum" = sum(igraph::E(g)$weight)
-                                )
+                                exec.simulation(initial.layers = 2,
+                                                n.components = params$n.components,
+                                                vertices = params$n.final.fragments,  
+                                                balance = params$balance,
+                                                components.balance = params$components.balance,
+                                                disturbance = params$disturbance,
+                                                aggreg.factor = params$aggreg.factor,
+                                                planar = params$planar,
+                                                asymmetric.transport.from = asymmetric)
                               }
     
     } else {
       hypothese1.res <- foreach(i = seq(1, input$replications),  .combine = "rbind",
                                 .errorhandling = "remove") %do%{
-                                  g <- frag.simul.process(initial.layers = 1,
-                                                          n.components = params$n.components,
-                                                          vertices = params$n.final.fragments,  
-                                                          balance = params$balance,
-                                                          components.balance = params$components.balance,
-                                                          disturbance = params$disturbance,
-                                                          aggreg.factor = params$aggreg.factor,
-                                                          planar = params$planar,
-                                                          asymmetric.transport.from = asymmetric)
-                                  g <- frag.edges.weighting(g, "layer")
-                                  inter.layer.e <- igraph::E(g)[igraph::V(g)[igraph::V(g)$layer == 1] %--% igraph::V(g)[igraph::V(g)$layer == 2]]
-                                  data.frame(
-                                    "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
-                                    "cohes" = rbind(frag.layers.cohesion(g, "layer")),
-                                    "v.obs" = igraph::gorder(g),
-                                    "e.obs" = igraph::gsize(g),
-                                    "bal.obs" = sort(table(igraph::V(g)$layer))[1] / sum(table(igraph::V(g)$layer)),
-                                    "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
-                                    "weightsum" = sum(E(g)$weight)
-                                  )
+                                  exec.simulation(initial.layers = 1,
+                                                  n.components = params$n.components,
+                                                  vertices = params$n.final.fragments,  
+                                                  balance = params$balance,
+                                                  components.balance = params$components.balance,
+                                                  disturbance = params$disturbance,
+                                                  aggreg.factor = params$aggreg.factor,
+                                                  planar = params$planar,
+                                                  asymmetric.transport.from = asymmetric)
                                 }
       
       hypothese2.res <- foreach(i = seq(1, input$replications),  .combine = "rbind",
                                 .errorhandling = "remove") %do%{
-                                  g <- frag.simul.process(initial.layers = 2,
-                                                          n.components = params$n.components,
-                                                          vertices = params$n.final.fragments,  
-                                                          balance = params$balance,
-                                                          components.balance = params$components.balance,
-                                                          disturbance = params$disturbance,
-                                                          aggreg.factor = params$aggreg.factor,
-                                                          planar = params$planar,
-                                                          asymmetric.transport.from = asymmetric)
-                                  g <- frag.edges.weighting(g, "layer")
-                                  inter.layer.e <- igraph::E(g)[igraph::V(g)[igraph::V(g)$layer == 1] %--% igraph::V(g)[igraph::V(g)$layer == 2]]
-                                  data.frame(
-                                    "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
-                                    "cohes" = rbind(frag.layers.cohesion(g, "layer")),
-                                    "v.obs" = igraph::gorder(g),
-                                    "e.obs" = igraph::gsize(g),
-                                    "bal.obs" = sort(table(igraph::V(g)$layer))[1] / sum(table(igraph::V(g)$layer)),
-                                    "dist.obs" = length(inter.layer.e) / igraph::gsize(g),
-                                    "weightsum" = sum(igraph::E(g)$weight)
-                                  )
+                                  exec.simulation(initial.layers = 2,
+                                                  n.components = params$n.components,
+                                                  vertices = params$n.final.fragments,  
+                                                  balance = params$balance,
+                                                  components.balance = params$components.balance,
+                                                  disturbance = params$disturbance,
+                                                  aggreg.factor = params$aggreg.factor,
+                                                  planar = params$planar,
+                                                  asymmetric.transport.from = asymmetric)
                                 }
     } # end else
     

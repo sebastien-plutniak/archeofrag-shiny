@@ -91,9 +91,9 @@ ui <- shinyUI(fluidPage(  # UI ----
                                                    h1("Weighting options"),
                                                    fluidRow(
                                                      column(2, uiOutput("morpho.selector")),
-                                                     column(1, uiOutput("x.selector")),
-                                                     column(1, uiOutput("y.selector")),
-                                                     column(1, uiOutput("z.selector"))
+                                                     column(2, uiOutput("x.selector")),
+                                                     column(2, uiOutput("y.selector")),
+                                                     column(2, uiOutput("z.selector"))
                                                    ), #end fluidrow
                                                    "Note that these weighting options are not supported by the simulation function.",
                                                    h1("Stats by pair of spatial units"),
@@ -122,8 +122,8 @@ ui <- shinyUI(fluidPage(  # UI ----
                     <p>
                       <ul>
                       <li>Select the pair of spatial units to compare in the menu.</li>
-                      <li>The parameters of the simulation are automatically filled with the values measured on the graph corresponding to the two spatial units selected, but can be edited.</li>
-                      <li> Set the number of simulated graphs to generate for each hypothesis, and click on the “Run” button. Using parallelization speeds up the computation (however, if it raises an error, untick the box, re-run the computation and be patient).</li>
+                      <li>The parameters of the simulation are automatically filled with the values measured on the graph corresponding to the two spatial units selected, but can be edited. The final number of refitting relations is not contrained.</li>
+                      <li> Set the number of simulated graphs to generate for each hypothesis, and click on the “Run” button. Enabling parallelization uses half of the available cores to speed up the computation (however if it raises an error, untick the box, re-run, and be patient).</li>
                       </ul>
                     </p>
                     <h2>Procedure</h2>
@@ -144,7 +144,7 @@ ui <- shinyUI(fluidPage(  # UI ----
                       Charts are generated to compare parameter values measured on the empirical fragmentation graph and on the artificial graphs: 
                       <ul>
                       <li>the value observed on the empirical graph is represented by a vertical bar, </li>
-                      <li>the distribution of values for each hypotheses are represented by dark (H1) and light (H2) grey shades, respectively.</li>
+                      <li>the distribution of values for each hypothesis are represented by dark (H1) and light (H2) grey shades, respectively.</li>
                       </ul>
                       </p>
                     </p>
