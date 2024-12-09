@@ -1,16 +1,15 @@
 Package: archeofrag.gui
 Type: Package
-Title: Spatial Analysis in Archaeology from Refitting Fragments
+Title: Spatial Analysis in Archaeology from Refitting Fragments (GUI)
 Version: 0.1.0
-Date: 2024-12-99
+Date: 2024-12-08
 Authors@R: person("Sebastien", "Plutniak", email = "sebastien.plutniak@posteo.net", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-6674-3806"))
 Author: Sebastien Plutniak [aut, cre] (<https://orcid.org/0000-0002-6674-3806>)
 Maintainer: Sebastien Plutniak <sebastien.plutniak@posteo.net>
-Description: An R 'Shiny' application to access the functionalities of the 'archeofrag' package for spatial analysis in archaeology, using refitting data. Example is provided at <https://analytics.huma-num.fr/Sebastien.Plutniak/archeofrag/>.
+Description: An R 'Shiny' application to access the functionalities of the 'archeofrag' package for spatial analysis in archaeology from refitting data. Demonstration of the application is available at <https://analytics.huma-num.fr/Sebastien.Plutniak/archeofrag/>.
 License: GPL-3
 Repository: CRAN
 Encoding: UTF-8
-Depends:   R (>= 3.5.0)
 Imports:
 	shiny,
 	archeofrag,

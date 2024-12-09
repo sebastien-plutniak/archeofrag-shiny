@@ -31,17 +31,14 @@ server <- function(input, output, session) {
     
     if(input$use_example != "-") {
       if(input$use_example == "Liang Abu"){
-        utils::data("LiangAbu")
-        edges.df <- df.cr
-        objects.df <- fragments.info
+        edges.df <- archeofrag::liangabu.connection
+        objects.df <- archeofrag::liangabu.fragments
       } else if(input$use_example == "Tai"){
-        utils::data("Tai")
-        edges.df <- tai.connection
-        objects.df <- tai.fragments
+        edges.df <- archeofrag::tai.connection
+        objects.df <- archeofrag::tai.fragments
       } else if(input$use_example == "Font-Juvenal"){
-        utils::data("Fontjuvenal")
-        edges.df <- fontjuvenal.connection
-        objects.df <- fontjuvenal.fragments
+        edges.df <- archeofrag::fontjuvenal.connection
+        objects.df <- archeofrag::fontjuvenal.fragments
       }      
     } else {
       query <- shiny::parseQueryString(session$clientData$url_search)
@@ -96,108 +93,102 @@ server <- function(input, output, session) {
   
   
    # SELECTORS ----
-  # pair of units selector ----
+  # ... pair of units selector ----
   output$layers.selector <- renderUI({
-    req(graph())
+    req(graph.data2())
     
-    g.list <- graph()
+    g.list <- graph.list()
     
-    choices.val <- 1:length(g.list)
+    choices.val <- seq(1, length(g.list))
     names(choices.val) <- names(g.list)
     
     selectInput("units.pair", "Pair of spatial units",
-                selected = choices.val[1],
                 choices = choices.val, width= "90%")
   })
   
+  # ... morpho selector ----
   output$morpho.selector <- renderUI({
-    req(graph.data())
-    
-    g.data <- graph.data()
-    objects.df <- g.data$objects.df
-    
-    choices.val <- c("-", names(objects.df))
-    
+    req(graph.data2())
+
+    choices.val <- c("-", names(graph.data()$objects.df))
+
     selectInput("morpho.variable", "Morphometry variable",
                 choices = choices.val, width= "90%")
   })
-  
+
+  # ... x selector ----
   output$x.selector <- renderUI({
-    req(graph.data())
-    
-    g.data <- graph.data()
-    objects.df <- g.data$objects.df
-    
-    choices.val <- c("-", names(objects.df))
-    
+    req(graph.data2())
+
+    choices.val <- c("-", names(graph.data()$objects.df))
+
     selectInput("x.variable", "X coordinates",
                 choices = choices.val, width= "90%")
   })
-  
+
+  # ... y selector ----
   output$y.selector <- renderUI({
-    req(graph.data())
-    
-    g.data <- graph.data()
-    objects.df <- g.data$objects.df
-    
-    choices.val <- c("-", names(objects.df))
-    
+    req(graph.data2())
+
+    choices.val <- c("-", names(graph.data()$objects.df))
+
     selectInput("y.variable", "Y coordinates",
                 choices = choices.val, width= "90%")
   })
-  
+
+  # ... z selector ----
   output$z.selector <- renderUI({
-    req(graph.data())
-    
-    g.data <- graph.data()
-    objects.df <- g.data$objects.df
-    
-    choices.val <- c("-", names(objects.df))
-    
+    req(graph.data2())
+
+    choices.val <- c("-", names(graph.data()$objects.df))
+
     selectInput("z.variable", "Z coordinates",
                 choices = choices.val, width= "90%")
   })
   
   
   
-  # MAKE GRAPH ----
-  graph <- reactive({ 
-    req(graph.data2)
+  # MAKE GRAPH LIST----
+  graph.list <- reactive({ 
+    req(graph.data2, input$spatial.variable)
     
     g.data <- graph.data2()
-    objects.df <- g.data$objects.df
-    edges.df <- g.data$edges.df
     
-    graph <- make_frag_object(edges.df, fragments = objects.df)
-    graph <- make_cr_graph(graph)
+    graph <- archeofrag::make_frag_object(g.data$edges.df, fragments = g.data$objects.df)
+    graph <- archeofrag::make_cr_graph(graph)
+    
+    # check if the data is complete for weighting parameter
+    check.and.delete.frag <- function(g, var){
+        values <- vertex_attr(g, var)
+        idx <- is.na(values) | values == ""
+        if(sum(idx)){ 
+          g <- delete_vertices(graph, idx) 
+          showNotification(paste0("Incomplete values in '", var, "'. ", as.character(sum(idx)), " fragments removed."),
+                           duration = 10, type = "message")
+          }
+        g
+    }
+    
+    if( ! is.null(input$morpho.variable)){ graph <- check.and.delete.frag(graph, input$morpho.variable)}
+    if( ! is.null(input$x.variable)){ graph <- check.and.delete.frag(graph, input$x.variable)}
+    if( ! is.null(input$y.variable)){ graph <- check.and.delete.frag(graph, input$y.variable)}
+    if( ! is.null(input$z.variable)){ graph <- check.and.delete.frag(graph, input$z.variable)}
     
     pairs <- utils::combn(sort(unique(igraph::V(graph)$spatial.variable)), 2)
     
-    morpho.variable <- ""
-    x.variable <- ""
-    y.variable <- ""
-    z.variable <- ""
-    if( ! is.null(input$morpho.variable)){
-      if( input$morpho.variable != "-"){
-        morpho.variable <- input$morpho.variable
-        x.variable <- input$x.variable
-        y.variable <- input$y.variable
-        z.variable <- input$z.variable
-      }
-    }
-    
-    g.list <- lapply(seq(1, ncol(pairs)), function(x, morpho.var = morpho.variable, 
-                                                   x.var = x.variable, 
-                                                   y.var = y.variable, 
-                                                   z.var = z.variable){
-      g <- frag.get.layers.pair(graph, "spatial.variable", pairs[, x]  )
+    g.list <- lapply(seq_len(ncol(pairs)), function(x,
+                                                   morpho.var = input$morpho.variable, 
+                                                   x.var = input$x.variable, 
+                                                   y.var = input$y.variable, 
+                                                   z.var = input$z.variable){    
+      g <- archeofrag::frag.get.layers.pair(graph, "spatial.variable", pairs[, x], verbose = FALSE)
       if(is.null(g)){ return() }
       if(length(unique(igraph::V(g)$spatial.variable)) != 2){ return() }
       
-      frag.edges.weighting(g, "spatial.variable", morphometry = morpho.var, 
-                           x = x.var, y = y.var, z = z.var)
+      archeofrag::frag.edges.weighting(g, "spatial.variable", morphometry = morpho.var, 
+                           x = x.var, y = y.var, z = z.var, verbose = FALSE)
     })
-    names(g.list) <- sapply(seq(1, ncol(pairs)), function(x)
+    names(g.list) <- sapply(seq_len(ncol(pairs)), function(x)
       paste(pairs[1, x], "/", pairs[2, x]))
     
     g.list[ ! sapply(g.list, is.null)]
@@ -206,11 +197,11 @@ server <- function(input, output, session) {
   # GET GRAPH PARAMS ----
   input.graph.params <- reactive({ 
     req(graph.selected())
-    archeofrag::frag.get.parameters(graph.selected(), "spatial.variable")
+    archeofrag::frag.get.parameters(graph.selected(), "spatial.variable", verbose = FALSE)
   })
   
   output$n.components <- renderUI({
-    req(graph()) 
+    req(graph.list()) 
     numericInput("n.components", "Initial objects number", value = input.graph.params()$n.components, width = "100%")
   })
   
@@ -228,7 +219,7 @@ server <- function(input, output, session) {
   })
   
   output$n.final.fragments <- renderUI({
-    req(graph())
+    req(graph.list())
     numericInput("n.final.fragments", "Final fragments number", value = input.graph.params()$vertices, width = "100%")
   })
   
@@ -258,15 +249,16 @@ server <- function(input, output, session) {
 # MEASUREMENT-----
   
 stats.table <- reactive({    # stats table ----
-    req(graph())
-    g.list <- graph()
+    req(graph.list, input$morpho.variable)
+    g.list <- graph.list()
     
     make.stat.table <- function(g){
       balance <- NA
+      
       if(igraph::gorder(g) > 6){
-        balance <- archeofrag::frag.get.parameters(g, "spatial.variable")$balance
+        balance <- archeofrag::frag.get.parameters(g, layer.attr = "spatial.variable", verbose = FALSE)$balance
       }
-      cohesion <- round(archeofrag::frag.layers.cohesion(g, "spatial.variable"), 2)
+      cohesion <- round(archeofrag::frag.layers.cohesion(g, "spatial.variable", verbose = FALSE), 2)
       cohesion.ratio <- sort(cohesion)
       cohesion.ratio <- cohesion.ratio[2] / cohesion.ratio[1]
       data.frame(
@@ -278,7 +270,7 @@ stats.table <- reactive({    # stats table ----
         "Cohesion 1st unit" = cohesion[1],
         "Cohesion 2nd unit" = cohesion[2],
         "Cohesion ratio" = round(cohesion.ratio, 1),
-        "Admixture" =  round(archeofrag::frag.layers.admixture(g, "spatial.variable"), 2)
+        "Admixture" =  round(archeofrag::frag.layers.admixture(g, "spatial.variable", verbose = FALSE), 2)
       )
     }
     
@@ -314,8 +306,6 @@ stats.table <- reactive({    # stats table ----
     rownames(res) <- res[, 1]
     res <- res[, -1]
     res[ order(rownames(res)), order(colnames(res))]
-    
-    # reshape2::acast(pairs, unit2 ~ unit1, value.var = "Admixture", na.rm = F, drop = F)
   })
   
   output$admixTab <- renderTable({ 
@@ -340,8 +330,8 @@ stats.table <- reactive({    # stats table ----
   
   
   graph.selected <- reactive({
-    req(graph(), input$units.pair)
-    graph.list <- graph()
+    req(graph.list(), input$units.pair)
+    graph.list <- graph.list()
     
     graph.list[[as.numeric(input$units.pair)]]
   })
@@ -369,14 +359,15 @@ stats.table <- reactive({    # stats table ----
  exec.simulation  <- function(initial.layers, n.components, vertices,
                               balance, components.balance, disturbance,
                               aggreg.factor, planar, asymmetric.transport.from){
-      g <- frag.simul.process(initial.layers, n.components, vertices, edges = Inf,
+   
+      g <- archeofrag::frag.simul.process(initial.layers, n.components, vertices, edges = Inf,
                               balance, components.balance, disturbance,
                               aggreg.factor, planar, asymmetric.transport.from)
-      g <- frag.edges.weighting(g, "layer")
+      
       inter.layer.e <- igraph::E(g)[igraph::V(g)[igraph::V(g)$layer == 1] %--% igraph::V(g)[igraph::V(g)$layer == 2]]
       data.frame(
-        "structural_admixture" = round(frag.layers.admixture(g, "layer"), 3),
-        "cohes" = rbind(frag.layers.cohesion(g, "layer")),
+        "structural_admixture" = round(archeofrag::frag.layers.admixture(g, "layer", verbose = FALSE), 3),
+        "cohes" = rbind(archeofrag::frag.layers.cohesion(g, "layer")),
         "v.obs" = igraph::gorder(g),
         "e.obs" = igraph::gsize(g),
         "bal.obs" = sort(table(igraph::V(g)$layer))[1] / sum(table(igraph::V(g)$layer)),
@@ -455,7 +446,7 @@ stats.table <- reactive({    # stats table ----
     hypotheses.df <- hypotheses.df[ , -4]
     colnames(hypotheses.df) <- c("admixture", "cohesion1", "cohesion2",  "edges", "balance", "disturbance", "weightsum","hypothesis")
     
-    summary.df <- frag.simul.summarise(graph.selected(), 
+    summary.df <- archeofrag::frag.simul.summarise(graph.selected(), 
                                        layer.attr = "spatial.variable", 
                                        res.h1 = hypotheses.df[hypotheses.df$hypothesis == "1", -8], 
                                        res.h2 = hypotheses.df[hypotheses.df$hypothesis == "2", -8], 
@@ -504,7 +495,7 @@ stats.table <- reactive({    # stats table ----
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
-    stats <- archeofrag::frag.get.parameters(obs.graph, "spatial.variable")
+    stats <- archeofrag::frag.get.parameters(obs.graph, "spatial.variable", verbose = FALSE)
     
     ggplot2::ggplot(hypotheses.df, ggplot2::aes(x= .data[["dist.obs"]], fill= .data[["hypothesis"]])) +
       ggplot2::theme_light(base_size = 12) +
@@ -522,7 +513,7 @@ stats.table <- reactive({    # stats table ----
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
-    stats <- archeofrag::frag.get.parameters(obs.graph, "spatial.variable")
+    stats <- archeofrag::frag.get.parameters(obs.graph, "spatial.variable", verbose = FALSE)
     
     ggplot2::ggplot(hypotheses.df, ggplot2::aes(x= .data[["bal.obs"]], fill = .data[["hypothesis"]])) +
       ggplot2::theme_light(base_size = 12) +
@@ -542,7 +533,8 @@ stats.table <- reactive({    # stats table ----
       ggplot2::theme_light(base_size = 12) +
       ggplot2::geom_density(alpha=.5, linewidth=.3) +
       ggplot2::scale_fill_grey("Hypothesis", start = .4, end = .9) +
-      ggplot2::geom_vline(xintercept = round(frag.layers.admixture(obs.graph, "spatial.variable"), 3)) +
+      ggplot2::geom_vline(xintercept = round(archeofrag::frag.layers.admixture(obs.graph,
+                                             "spatial.variable", verbose=FALSE), 3)) +
       ggplot2::xlab("Admixture") + ggplot2::ggtitle("Admixture")
   })
   
@@ -560,13 +552,15 @@ stats.table <- reactive({    # stats table ----
     hypotheses.df2$hypothesis <- factor(hypotheses.df2$hypothesis, 
                                         labels=c("Hypothesis 1", "Hypothesis 2"))
     
+    cohes.values <- archeofrag::frag.layers.cohesion(obs.graph, "spatial.variable", verbose = FALSE)
+    
     ggplot2::ggplot(hypotheses.df2, ggplot2::aes(x = .data[["value"]], fill= .data[["Layer"]])) +
       ggplot2::theme_light(base_size = 12) +
       ggplot2::geom_density(alpha=.5, linewidth=.3) +
       ggplot2::geom_boxplot(outlier.shape = 21) +
       ggplot2::scale_fill_grey(start = .9, end = .4) +
-      ggplot2::geom_vline(xintercept = frag.layers.cohesion(obs.graph, "spatial.variable")[1], linetype=1) +
-      ggplot2::geom_vline(xintercept = frag.layers.cohesion(obs.graph, "spatial.variable")[2], linetype=2) +
+      ggplot2::geom_vline(xintercept = cohes.values[1], linetype=1) +
+      ggplot2::geom_vline(xintercept = cohes.values[2], linetype=2) +
       ggplot2::facet_wrap(~hypothesis, ncol=1) +
       ggplot2::scale_x_continuous("Cohesion", limits=c(0,1)) + ggplot2::ggtitle("Cohesion")
   })
@@ -576,7 +570,9 @@ stats.table <- reactive({    # stats table ----
   
   output$visualisation.plot <- renderPlot({   # VISUALISATION ####
     req(graph.selected())
-    frag.graph.plot(graph.selected(), layer.attr = "spatial.variable")
+    g <- graph.selected()
+    igraph::E(g)$weight <- 1 # temporary workaround to deal with unexpected 'negative' weights from frag.edge.weight
+    archeofrag::frag.graph.plot(g, layer.attr = "spatial.variable")
   })
   
   # SIMULATION CODE ----
