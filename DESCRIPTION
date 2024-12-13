@@ -2,7 +2,7 @@ Package: archeofrag.gui
 Type: Package
 Title: Spatial Analysis in Archaeology from Refitting Fragments (GUI)
 Version: 0.1.0
-Date: 2024-12-08
+Date: 2024-12-09
 Authors@R: person("Sebastien", "Plutniak", email = "sebastien.plutniak@posteo.net", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-6674-3806"))
 Author: Sebastien Plutniak [aut, cre] (<https://orcid.org/0000-0002-6674-3806>)
 Maintainer: Sebastien Plutniak <sebastien.plutniak@posteo.net>
@@ -19,14 +19,13 @@ Imports:
     igraph,
 	RBGL,
 	dendextend,
+	grDevices,
 	doParallel,
 	foreach,
 Suggests:
-    knitr,
     rmarkdown,
     markdown,
-Config/testthat/edition: 3
-URL: https://github.com/sebastien-plutniak/archeofrag-gui
-BugReports: https://github.com/sebastien-plutniak/archeofrag-gui/issues
+URL: https://github.com/sebastien-plutniak/archeofrag.gui
+BugReports: https://github.com/sebastien-plutniak/archeofrag.gui/issues
 
 

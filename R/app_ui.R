@@ -4,12 +4,11 @@
 ui <- shinyUI(fluidPage(  # UI ----
                           theme = shinytheme("cosmo"),  # slate  flatly
                           sidebarLayout(
-                            sidebarPanel(                  
-                              h3(div(HTML("<a href=https://github.com/sebastien-plutniak/archeofrag.gui title='Go to the archeofrag.gui page' target=_blank>archeofrag-gui</a> v",  as.character(utils::packageVersion("archeofrag.gui")) ))),
+                            sidebarPanel(
+                              h3(div(HTML("<a href=https://github.com/sebastien-plutniak/archeofrag.gui title='Go to the archeofrag.gui page' target=_blank>archeofrag.gui</a> v",  as.character(utils::packageVersion("archeofrag.gui")) ))),
                               div(HTML("using <a href=https://github.com/sebastien-plutniak/archeofrag title='Go to the archeofrag page' target=_blank>archeofrag</a> v",  as.character(utils::packageVersion("archeofrag")) )),
                               h3("Input data"),
-                              selectInput("use_example", "Load example data", 
-                                          choices = c("-", "Font-Juvenal", "Liang Abu", "Tai"), selected = "-"),
+                              uiOutput("dataset.selector"),
                               fileInput('inputEdges', 'Relations (CSV file):',
                                         width="70%",
                                         accept=c('text/csv', 'text/comma-separated-values,text/plain')),
@@ -25,12 +24,14 @@ ui <- shinyUI(fluidPage(  # UI ----
                               width=2), # end sidebarpanel
                             
                             mainPanel(
-                              tabsetPanel(id="tabs",
-                                          tabPanel("Introduction", # Introduction ----      
+                              tabsetPanel(id="tabs", 
+                                          tabPanel("Introduction", # Introduction ----  
                                                    column(10, align="center",
                                                           tags$div(
                                                             HTML("<div style=width:40%;, align=left>
-                <h1><i>archeofrag-gui</i></h1>
+                <h1><i>archeofrag.gui</i></h1>
+                <br>
+                <img width='100%' src=www/general-idea.png><br><br>
                 <p>
                 This application implements some features of the
                 <i><a href=https://cran.r-project.org/web/packages/archeofrag/index.html target=_blank>archeofrag</a></i> R package for spatial analysis in archaeology from the study of refitting fragments of objects. Based on the TSAR method (Topological Study of Archaeological Refitting),  it includes functions to <b>evaluate and validate</b> the distinction between <b>archaeological spatial units</b> (e.g. layers), from the distribution and the topology of the refitting relationships between the fragments contained in these units.
@@ -63,60 +64,77 @@ ui <- shinyUI(fluidPage(  # UI ----
                 </ul>
                  Using the <i>archeofrag</i> R package, other hypotheses can be tested by adjusting the simulator parameters.
                 </p>
-                <h1>References</h1>
-                <h2>About <i>archeofrag</i></h2>
-                <p>
-                The code and more information are available on <a target=_blank, href=https://github.com/sebastien-plutniak/archeofrag/>github</a> and in the following publications:
-                <ul>
-                  <li>Plutniak, S. 2021. “<a href=https://hal.archives-ouvertes.fr/hal-03419952 target=_blank>The Strength of Parthood Ties. Modelling Spatial Units and Fragmented Objects with the TSAR Method – Topological Study of Archaeological Refitting</a>”, <i>Journal of Archaeological Science</i>, 136, p. 105501. DOI: <a href=https://doi.org/10.1016/j.jas.2021.105501 target=_blank>10.1016/j.jas.2021.105501</a>.</li>
-                  <li>Plutniak, S. 2022. “Archeofrag: an R package for Refitting and Spatial Analysis in Archaeology”, <i>Journal of Open Source Software</i>, 7 (75), p. 4335. DOI: <a href=https://doi.org/10.21105/joss.04335 target=_blank>10.21105/joss.04335</a>.</li>
-                  <li>Plutniak, S. 2022. “<a href=https://rzine.fr/ressources/20220811_archeofrag_joss/ target=_blank>Archeofrag: un package R pour les remontages et l'analyse spatiale en archéologie</a>”, <i>Rzine</i>.</li>
-                  <li>Plutniak, S. 2022. “<a href=http://www.prehistoire.org/offres/doc_inline_src/515/0-BSPF_2022_1_2e_partie_Correspondance_PLUTNIAK.pdf target=_blank>L'analyse topologique des remontages archéologiques : la méthode TSAR et le package R archeofrag</a>”, <i>Bulletin de la Société préhistorique française</i>, 119 (1), p. 110–113.</li>
-                  <li>Plutniak, S., J. Caro, C. Manen 2023. “<a href=https://hal.science/hal-04355706 target=_blank>Four Problems for Archaeological Fragmentation Studies. Discussion and Application to the Taï Cave’s Neolithic Pottery Material (France)</a>”, in A. Sörman, A. Noterman, M. Fjellström (eds.) <i>Broken Bodies, Places and Objects. New Perspectives on Fragmentation in Archaeology</i>, London: Routledge, p. 124–142. DOI: <a href=https://doi.org/10.4324/9781003350026-1 target=_blank>10.4324/9781003350026-11</a>.</li>
-                </ul>
-                </p>
-                <h2>Datasets</h2> 
-                <ul>
-                  <li><b>Font-Juvénal</b>:  Caro J. 2020. <i>Productions céramiques et dynamiques des sociétés au Ve millénaire avant notre ère : la transition du Néolithique ancien au Néolithique moyen dans le bassin Nord-occidental de la Méditerranée</i>. PhD Dissertation, Toulouse University, HAL:  <a href=https://theses.hal.science/tel-03613599  target=_blank>tel-036135996</a> </li>                
-                  <li><b>Liang Abu</b>: Plutniak S. 2021. “Refitting Pottery Fragments from the Liang Abu Rockshelter, Borneo”. DOI: <a href=https://doi.org/10.5281/zenodo.4719577 target=_blank>10.5281/zenodo.4719577</a> </li>
-                  <li><b>Taï</b>:  Caro J., Plutniak S. 2022. “Refitting and Matching Neolithic Pottery Fragments from the Taï site, France”. DOI:  <a href=https://doi.org/10.5281/zenodo.7408706 target=_blank>10.5281/zenodo.7408706</a> </li>
-                </ul>
                 <br>
-                                                                 </div>"))
+                </div>"))
                                                    ) # end column
                                           ), #end tabPanel
                                           
                                           tabPanel("Measurements", # Measurements ----
                                                    br(),
-                                                   h1("Weighting options"),
+                                                   h1("Weighting options"), # .. weigthting options----
                                                    fluidRow(
                                                      column(2, uiOutput("morpho.selector")),
                                                      column(2, uiOutput("x.selector")),
                                                      column(2, uiOutput("y.selector")),
                                                      column(2, uiOutput("z.selector"))
                                                    ), #end fluidrow
-                                                   "Note that these weighting options are not supported by the simulation function.",
+                                                   fluidRow(
+                                                   column(10, align="center",
+                                                   HTML(
+                                                  "<div style=width:40%;, align=left>
+                                                   <p>Use the <b>morphometry</b> variable to include any sort of morpho-metrical information about the objects in the computation (e.g. length, surface, volume, weight). Use at least two <b>coordinates</b> to include physical distances between the object found places in the computation (whatever the unit: metre, centimetre, inch, etc.). Details about the method are given in Plutniak, Caro, Manen 2023.</p>
+                                                   <p>Note that these weighting options are not supported by the simulation function.</p>
+                                                  </div>"
+                                                   ) #end HTML
+                                                   ) #end columns
+                                                   ), # end fluidrow
+                                                   fluidRow(
                                                    h1("Stats by pair of spatial units"),
+                                                   column(10, align="center",
                                                    DT::DTOutput("resultsTab",  width="80%"), 
+                                                   ), # end column
+                                                   column(10, align="left",
                                                    HTML("
                                                         <ul>
                                                           <li><b>Balance</b>: proportion of fragments in the poorest spatial unit</li>
                                                           <li><b>Cohesion ratio</b>: highest cohesion value / lower cohesion value </li>
                                                         </ul>
                                                         "),
-                                                   h1("Admixture between spatial units"),
+                                                   ) # end column
+                                                   ), #end fluirow
+                                                   h1("Dissimilarity between spatial units"), # .. dissimilarity ----
+                                                   column(10, align="center",
+                                                   HTML("<div  style=width:40%;, align=left> 
+                                                   <p>Dissimilarity between spatial units A and B is calculated as 1 - admixture(A, B). Results can be normalised (feature scaling) by ticking the box.</p>
+                                                   <p>The higher the dissimilarity value, the more likely it is that these two archaeological units correspond to different depositional units. Theoretically, a spatial unit is expected to be more similar to those near it. </p>
+                                                   <p>In the case of stratigraphic layers, a layer is expected to be more related to the layers directly above and below it. The branches of the dendrogram are ordered alphanumerically according to their label (following the stratigraphic order of the layers). Anomalies are revealed when, despite this ordering constraint, the expected order of superposition is not observed in the result.
+                                                  </p>
+                                                  </div> "),
+                                                   checkboxInput("normalise.diss", "Normalise", value = F),
                                                    tableOutput("admixTab"),
-                                                   imageOutput("admix.plot",  width= "50%")
+                                                   imageOutput("admix.plot",  width= "70%"),
+                                                   uiOutput("admix.download.button"),
+                                                   br(), br()
+                                                   ) # end column
                                           ), #end tabPanel
                                           tabPanel("Visualisation", # Visualisation ----
-                                                   br(),
-                                                   imageOutput("visualisation.plot", height = "800px", width= "100%")
+                                                   fluidRow(
+                                                     h1("Fragmentation graph"),
+                                                     column(10, align="center",
+                                                      br(),
+                                                       HTML("<div  style=width:40%;, align=left>"),
+                                                       uiOutput("visualisation.title"),
+                                                       HTML("</div>"),
+                                                       br(),
+                                                  imageOutput("frag.graph.viz.plot", height = "800px", width= "100%"),
+                                                  uiOutput("frag.graph.viz.download.button"),
+                                                     ) #end column
+                                                   ) # end fluidrow
                                           ), #end tabPanel
                                           tabPanel("Simulation", # Simulation ---- 
                                                    fluidRow(
                                                      h1("Information"),
                                                    column(10, align="center",
-                                                          tags$div(
                                                             HTML("<div style=width:40%;, align=left>
                     <h2>Instruction</h2>
                     <p>
@@ -148,21 +166,24 @@ ui <- shinyUI(fluidPage(  # UI ----
                       </ul>
                       </p>
                     </p>
-                 </div>") )
+                 </div>") 
                                                    ) # end column
                                                    ), # end fluidrow
                                                    fluidRow(
-                                                    h2("Model parameters set up"),
-                                                    column(2, uiOutput("n.components")),
-                                                    column(3, uiOutput("components.balance")),
+                                                     h2("Model parameters set up"),
+                                                     h3("Initial state"),
+                                                     column(2, uiOutput("n.components")),
+                                                     column(3, uiOutput("components.balance")),
                                                   ),
                                                   fluidRow(
+                                                    h3("Deposition process"),
                                                     column(2, uiOutput("planar")),
                                                     column(3, uiOutput("balance")),
                                                     column(3, uiOutput("aggreg.factor")),
                                                     column(2, uiOutput("asymmetric"))
                                                   ), #end fluidrow
                                                   fluidRow(
+                                                    h3("Final state"),
                                                     column(2, uiOutput("n.final.fragments")),
                                                     column(3, uiOutput("disturbance"))
                                                   ),
@@ -170,7 +191,7 @@ ui <- shinyUI(fluidPage(  # UI ----
                                                             h2("Computation set up"),
                                                             column(1, 
                                                                    numericInput("replications", "Replications",
-                                                                                50, min=30, max=500, width = "100%")),
+                                                                                50, min=30, max=1000, width = "100%")),
                                                             column(1, actionButton("goButton", "Run"), style="padding:27px;"),
                                                             column(2,  uiOutput("parallelize.box"),
                                                                    style="padding:27px;")
@@ -209,6 +230,33 @@ ui <- shinyUI(fluidPage(  # UI ----
                                                           )  # end HTML
                                                    ) # end column
                                           ), #end tabPanel
+                                          tabPanel("References", # References ----  
+                                                   column(10, align="center",
+                                                          tags$div(
+                                                            HTML("<div style=width:40%;, align=left>
+                <h2>About <i>archeofrag</i></h2>
+                <p>
+                The code and more information are available on the <a target=_blank, href=https://cran.r-project.org/package=archeofrag>CRAN</a> and on <a target=_blank, href=https://github.com/sebastien-plutniak/archeofrag/>github</a> and in these publications:
+                <ul>
+                  <li><b>Plutniak, S. 2021</b>. “<a href=https://hal.archives-ouvertes.fr/hal-03419952 target=_blank>The Strength of Parthood Ties. Modelling Spatial Units and Fragmented Objects with the TSAR Method – Topological Study of Archaeological Refitting</a>”, <i>Journal of Archaeological Science</i>, 136, p. 105501. DOI: <a href=https://doi.org/10.1016/j.jas.2021.105501 target=_blank>10.1016/j.jas.2021.105501</a>.</li>
+                  <li><b>Plutniak, S. 2022</b>. “Archeofrag: an R package for Refitting and Spatial Analysis in Archaeology”, <i>Journal of Open Source Software</i>, 7 (75), p. 4335. DOI: <a href=https://doi.org/10.21105/joss.04335 target=_blank>10.21105/joss.04335</a>.</li>
+                  <li><b>Plutniak, S. 2022</b>. “<a href=https://rzine.fr/ressources/20220811_archeofrag_joss/ target=_blank>Archeofrag: un package R pour les remontages et l'analyse spatiale en archéologie</a>”, <i>Rzine</i>.</li>
+                  <li><b>Plutniak, S. 2022</b>. “<a href=http://www.prehistoire.org/offres/doc_inline_src/515/0-BSPF_2022_1_2e_partie_Correspondance_PLUTNIAK.pdf target=_blank>L'analyse topologique des remontages archéologiques : la méthode TSAR et le package R archeofrag</a>”, <i>Bulletin de la Société préhistorique française</i>, 119 (1), p. 110–113.</li>
+                  <li><b>Plutniak, S., J. Caro, C. Manen 2023</b>. “<a href=https://hal.science/hal-04355706 target=_blank>Four Problems for Archaeological Fragmentation Studies. Discussion and Application to the Taï Cave’s Neolithic Pottery Material (France)</a>”, in A. Sörman, A. Noterman, M. Fjellström (eds.) <i>Broken Bodies, Places and Objects. New Perspectives on Fragmentation in Archaeology</i>, London: Routledge, p. 124–142. DOI: <a href=https://doi.org/10.4324/9781003350026-1 target=_blank>10.4324/9781003350026-11</a>.</li>
+                </ul>
+                </p>
+                <h2>Datasets</h2> 
+                <ul>
+                  <li><b>Bout des Vergnes</b>:  Ihuel, E. (dir.), avec  Baillet M., Barbeyron A., Brenet M., Camus H., Claud E., Mercier N., Michel A., Sellami F. 2020. <i>Le Bout des Vergnes, Bergerac (Dordogne, Nouvelle-Aquitaine), Contournement ouest de Bergerac, RD 709</i>, Rapport final d’opération, Périgueux, Conseil départemental de la Dordogne, Service départemental d'archéologie. </li>
+                  <li><b>Chauzeys</b>: Chadelle J.-P. (dir.), avec M. Baillet, A. Barbeyron, M. Brenet, H. Camus, É. Claud, F. Jude, S. Kreutzer, A. Michel,  N. Mercier, M. Rabanit, S. Save, F. Sellami, A. Vaughan-Williams. 2021. <i>Chauzeys, Saint-Médard-de-Mussidan (Dordogne, Nouvelle-Aquitaine)</i>, Rapport final d'opération archéologique, Périgueux, Conseil départemental de la Dordogne, Service départemental d'archéologie. </li>
+                  <li><b>Font-Juvénal</b>:  Caro J. 2020. <i>Productions céramiques et dynamiques des sociétés au Ve millénaire avant notre ère : la transition du Néolithique ancien au Néolithique moyen dans le bassin Nord-occidental de la Méditerranée</i>. PhD Dissertation, Toulouse University, HAL:  <a href=https://theses.hal.science/tel-03613599  target=_blank>tel-036135996</a> </li>                
+                  <li><b>Liang Abu</b>: Plutniak S. 2021. “Refitting Pottery Fragments from the Liang Abu Rockshelter, Borneo”. DOI: <a href=https://doi.org/10.5281/zenodo.4719577 target=_blank>10.5281/zenodo.4719577</a> </li>
+                  <li><b>Taï</b>:  Caro J., Plutniak S. 2022. “Refitting and Matching Neolithic Pottery Fragments from the Taï site, France”. DOI:  <a href=https://doi.org/10.5281/zenodo.7408706 target=_blank>10.5281/zenodo.7408706</a> </li>
+                </ul>
+                <br>
+                                                                 </div>"))
+                                                   ) # end column
+                                          ), #end tabPanel                                          
                                           ), # end  tabsetPanel
                               width=10) # end mainPanel
                           ) #sidebarLayout

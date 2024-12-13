@@ -9,6 +9,47 @@ server <- function(input, output, session) {
                          foreach::getDoParWorkers(), ")"), value=T)
   })
   
+  # rubish generator
+  generate.rubish <- function(){
+      l13 <- archeofrag::frag.simul.process(n.components=24, vertices=70, disturbance=.4)
+      igraph::V(l13)[igraph::V(l13)$layer == 2]$layer <- 3
+      
+      l24 <- archeofrag::frag.simul.process(n.components=20, vertices=44, balance = .7, disturbance=0)
+      igraph::V(l24)[igraph::V(l24)$layer == 1]$layer <- 4
+      igraph::V(l24)$name <- paste0(igraph::V(l24)$name, "xyz")
+      
+      l5 <- archeofrag::frag.simul.process(n.components=5, vertices=20)
+      igraph::V(l5)$layer  <- 5
+      igraph::V(l5)$name <- paste0(igraph::V(l5)$name, "zxy")
+      
+      # merge
+      g <- igraph::disjoint_union(l13, l24, l5)
+      igraph::graph_attr(g, "frag_type") <- "cr"
+      # archeofrag::frag.graph.plot(g, "layer")
+      
+      # add connection between 1 and 2
+      g <- igraph::add_edges(g, c(rbind(sample(igraph::V(g)[igraph::V(g)$layer == 1], 5),
+                                sample(igraph::V(g)[igraph::V(g)$layer == 2], 5))))
+      
+      # add connection between 2 and 3
+      g <- igraph::add_edges(g, c(rbind(sample(igraph::V(g)[igraph::V(g)$layer == 2], 5),
+                                sample(igraph::V(g)[igraph::V(g)$layer == 3], 5))))
+      
+      # add connection between 3 and 4
+      g <- igraph::add_edges(g, c(rbind(sample(igraph::V(g)[igraph::V(g)$layer == 3], 10),
+                                sample(igraph::V(g)[igraph::V(g)$layer == 4], 10))))
+      
+      # add connection between 4 and 5
+      g <-  igraph::add_edges(g, c(rbind(sample(igraph::V(g)[igraph::V(g)$layer == 4], 2),
+                                sample(igraph::V(g)[igraph::V(g)$layer == 5], 2))))
+      
+      # extract tables and export
+      list("connection" = igraph::as_edgelist(g), 
+           "fragments" = rubish.fragments <- data.frame("id" =  igraph::V(g)$name, "layer" =  igraph::V(g)$layer))
+  }
+  
+  rubish <- generate.rubish()
+  
   # data input ----
   userNodes <- reactive({
     req(input$inputNodes)
@@ -27,19 +68,31 @@ server <- function(input, output, session) {
     input$inputEdges
   })
   
+  # datasets list ----
+  datasets <- data(package = "archeofrag")$result[, "Item"]
+  data.names <- gsub(".*\\((.*)\\)","\\1", datasets)
+  data.names <- gsub("([A-Z])"," \\1", data.names)
+  data.names <- gsub("^ ", "", data.names)
+  names(data.names) <-  gsub("^(.*?)\\..*","\\1", datasets)
+  
+  # dataset selector ----
+  output$dataset.selector <- renderUI({
+    data.names <- sort(c("-", data.names, "Rubish Site"))
+    selectInput("use_example", "Load example data", 
+                choices = c(data.names, use.names=FALSE), selected = "-")
+  })
+  
+  
   graph.data <- reactive({
+    req(input$use_example)
     
-    if(input$use_example != "-") {
-      if(input$use_example == "Liang Abu"){
-        edges.df <- archeofrag::liangabu.connection
-        objects.df <- archeofrag::liangabu.fragments
-      } else if(input$use_example == "Tai"){
-        edges.df <- archeofrag::tai.connection
-        objects.df <- archeofrag::tai.fragments
-      } else if(input$use_example == "Font-Juvenal"){
-        edges.df <- archeofrag::fontjuvenal.connection
-        objects.df <- archeofrag::fontjuvenal.fragments
-      }      
+    if(input$use_example  %in% data.names) {
+      idx <- which(data.names == input$use_example)
+      eval(parse(text = paste0("edges.df <- archeofrag::",   names(data.names[idx]), ".connection" )))
+      eval(parse(text = paste0("objects.df <- archeofrag::", names(data.names[idx]), ".fragments" )))
+    } else if(input$use_example == "Rubish Site"){
+      edges.df <- rubish$connection
+      objects.df <- rubish$fragments
     } else {
       query <- shiny::parseQueryString(session$clientData$url_search)
       
@@ -65,6 +118,7 @@ server <- function(input, output, session) {
     objects.df <- g.data$objects.df
 
     choices.val <- names(objects.df)
+    choices.val <- choices.val[ ! tolower(choices.val) == "id"]
     names(choices.val) <- names(choices.val)
     
     default.value <- choices.val[1]
@@ -194,6 +248,13 @@ server <- function(input, output, session) {
     g.list[ ! sapply(g.list, is.null)]
   })
   
+  graph.selected <- reactive({
+    req(graph.list(), input$units.pair)
+    graph.list <- graph.list()
+    
+    graph.list[[as.numeric(input$units.pair)]]
+  })
+  
   # GET GRAPH PARAMS ----
   input.graph.params <- reactive({ 
     req(graph.selected())
@@ -301,11 +362,17 @@ stats.table <- reactive({    # stats table ----
                    stats.table[, c("Admixture", "unit1", "unit2")], 
                    by = c("unit1", "unit2"), all.x = T)
     
-    res <- stats::reshape(pairs, timevar = "unit1", idvar = "unit2",  v.names = "Admixture", direction = "wide")
-    colnames(res) <- gsub("^.*\\.(.*)", "\\1", colnames(res))
-    rownames(res) <- res[, 1]
-    res <- res[, -1]
-    res[ order(rownames(res)), order(colnames(res))]
+    if(input$normalise.diss){
+      pairs$Admixture <- ( pairs$Admixture - min(pairs$Admixture, na.rm = T)) / 
+          (max(pairs$Admixture, na.rm = T) - min(pairs$Admixture, na.rm = T))
+    }
+    
+    diss <- stats::reshape(pairs, timevar = "unit1", idvar = "unit2",  v.names = "Admixture", direction = "wide")
+    colnames(diss) <- gsub("^.*\\.(.*)", "\\1", colnames(diss))
+    rownames(diss) <- diss[, 1]
+    diss <- diss[, -1]
+
+    diss[ order(rownames(diss)), order(colnames(diss))]
   })
   
   output$admixTab <- renderTable({ 
@@ -313,8 +380,8 @@ stats.table <- reactive({    # stats table ----
     admixTab()
   }, rownames = T, colnames = T, na = "-")
   
-  
-  output$admix.plot <- renderPlot({  # admix plot ----
+  # admix plot ----
+  admix.dendr <- reactive({  
     req(admixTab())
     admixTab <- 1 - admixTab()
     admixTab[is.na(admixTab)] <- 1
@@ -322,20 +389,29 @@ stats.table <- reactive({    # stats table ----
     admixTab <- stats::as.dist(admixTab)
     
     dend.plot <- stats::as.dendrogram(stats::hclust(admixTab, method = "complete"))
-    dend.plot <- sort(dend.plot, decreasing = T)
-    plot(dend.plot, horiz = T, 
+    sort(dend.plot, decreasing = T)
+  })
+  
+  output$admix.plot <- renderPlot({  
+    req(admix.dendr)
+    
+    plot(admix.dendr(), horiz = T, main = input$spatial.variable,
          xlab ="Dissimilarity: 1 – admixture. An alphanumerical ordering constraint is applied to the branches of the dendrogram") 
   })
   
   
+  output$admix.download <- downloadHandler(
+    filename = paste0("archeofrag-dissimilarity-",  input$spatial.variable, ".svg"),
+    content = function(file) {
+      grDevices::svg(file)
+        plot(admix.dendr(), horiz = T, main = input$spatial.variable)
+        grDevices::dev.off()
+    }
+  )
   
-  graph.selected <- reactive({
-    req(graph.list(), input$units.pair)
-    graph.list <- graph.list()
-    
-    graph.list[[as.numeric(input$units.pair)]]
+  output$admix.download.button <- renderUI({
+    downloadButton("admix.download", "Download as SVG")
   })
-  
   
   # SIMULATION ####
   hypotheses <- eventReactive(input$goButton, { # run simulation ####
@@ -344,6 +420,11 @@ stats.table <- reactive({    # stats table ----
     req(graph.selected())
     graph <- graph.selected()
      
+    if(input$replications < 30 | input$replications > 1000) {
+      showNotification("The number of replication must be in [30, 1000].", type="warning")
+      return(NULL)
+    }
+    
     asymmetric <- input$asymmetric
     if(asymmetric == "none") asymmetric <- NULL
     
@@ -355,7 +436,7 @@ stats.table <- reactive({    # stats table ----
                    "aggreg.factor" = input$aggreg.factor,
                    "planar" = input$planar)
 
- # Function to exetute the simulation and retrieve some measures:
+ # Function to execute the simulation and retrieve some measures:
  exec.simulation  <- function(initial.layers, n.components, vertices,
                               balance, components.balance, disturbance,
                               aggreg.factor, planar, asymmetric.transport.from){
@@ -441,6 +522,8 @@ stats.table <- reactive({    # stats table ----
   summary.tab <- eventReactive(input$goButton, {# summary table  ----
     
     req(hypotheses())
+    if(input$replications < 30 | input$replications > 1000) {return(NULL)}
+    
     hypotheses.df <- hypotheses()
     
     hypotheses.df <- hypotheses.df[ , -4]
@@ -461,6 +544,7 @@ stats.table <- reactive({    # stats table ----
   
   test.simul.edges.plot <- eventReactive(input$goButton, {    # plot edge count ####
     req(hypotheses())
+    if(input$replications < 30 | input$replications > 1000) {return(NULL)}
     
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
@@ -477,6 +561,9 @@ stats.table <- reactive({    # stats table ----
   
   
   test.simul.weightsum.plot <- eventReactive(input$goButton, { # plot weights ####
+    req(hypotheses())
+    if(input$replications < 30 | input$replications > 1000) {return(NULL)}
+    
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -492,6 +579,9 @@ stats.table <- reactive({    # stats table ----
   
   
   test.simul.disturbance.plot <-  eventReactive(input$goButton, {  # plot disturbance ####
+    req(hypotheses())
+    if(input$replications < 30 | input$replications > 1000) {return(NULL)}
+    
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -510,6 +600,9 @@ stats.table <- reactive({    # stats table ----
   
   
   test.simul.balance.plot <-  eventReactive(input$goButton, {  # plot balance ####
+    req(hypotheses())
+    if(input$replications < 30 | input$replications > 1000) {return(NULL)}
+    
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -526,6 +619,9 @@ stats.table <- reactive({    # stats table ----
   
   
   test.simul.admixture.plot <- eventReactive(input$goButton, {   # plot admixture ####
+    req(hypotheses())
+    if(input$replications < 30 | input$replications > 1000) {return(NULL)}
+    
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected() 
     
@@ -542,6 +638,9 @@ stats.table <- reactive({    # stats table ----
   
   
   test.simul.cohesion.plot <- eventReactive(input$goButton, {   # plot cohesion ####
+    req(hypotheses())
+    if(input$replications < 30 | input$replications > 1000) {return(NULL)}
+    
     hypotheses.df <- hypotheses()
     obs.graph <- graph.selected()
     
@@ -566,14 +665,48 @@ stats.table <- reactive({    # stats table ----
   })
   output$test.simul.cohesion.plot <- renderPlot({test.simul.cohesion.plot()})
   
+  # VISUALISATION ####
+  output$visualisation.title <- renderText({
+    units.pair <- names(graph.list())[as.numeric(input$units.pair)]
+    
+    paste0("Fragmentation graph for spatial units <b>", units.pair, 
+           "</b> from the <b>",  input$spatial.variable, 
+           "</b> variable. 
+            <ul>
+              <li>lines: connection relationships</li> 
+              <li>nodes: fragments</li>
+              <li>color: spatial unit associated with the fragments (<font color=red>red</font> for <b>",  
+           gsub("^(.*)/.*", "\\1", units.pair), 
+           "</b>, <font color=purple>purple</font> for <b>", gsub("^.*/(.*)", "\\1", units.pair), 
+           "</b>)</li></ul>")
+  })
   
-  
-  output$visualisation.plot <- renderPlot({   # VISUALISATION ####
+  frag.graph.viz <- reactive({   
     req(graph.selected())
     g <- graph.selected()
     igraph::E(g)$weight <- 1 # temporary workaround to deal with unexpected 'negative' weights from frag.edge.weight
-    archeofrag::frag.graph.plot(g, layer.attr = "spatial.variable")
+    g
   })
+  
+  output$frag.graph.viz.plot <- renderPlot({ 
+    archeofrag::frag.graph.plot(frag.graph.viz(), layer.attr = "spatial.variable") 
+    })
+  
+  
+  output$frag.graph.viz.download <- downloadHandler(
+    filename = paste0("archeofrag-frag-graph-", input$spatial.variable, "-",
+                      gsub(" / ", "-", names(graph.list())[as.numeric(input$units.pair)]), ".svg"),
+    content = function(file) {
+      grDevices::svg(file)
+        archeofrag::frag.graph.plot(frag.graph.viz(), layer.attr = "spatial.variable") 
+      grDevices::dev.off()
+    }
+  )
+  
+  output$frag.graph.viz.download.button <- renderUI({
+    downloadButton("frag.graph.viz.download", "Download as SVG")
+  })
+  
   
   # SIMULATION CODE ----
   

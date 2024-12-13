@@ -1,6 +1,0 @@
- 
-* erreur pour le plot des valeurs de cohésion
-* add a frag.graph.plot()
-* add weighting options options
-* paramétres de la simulation?
- 
