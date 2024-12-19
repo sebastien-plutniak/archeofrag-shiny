@@ -2,13 +2,13 @@
 .git
 .github
 .gitignore
-README.Rmd
+.Rhistory
 README.md
-man/figures
+app.R
 cran-comments.md
 .travis.yml
 codecov.yaml
 ^Meta$
 ^doc$
 LICENSE.md
-TODO.txt
+TODO.md

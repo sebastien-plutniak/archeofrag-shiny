@@ -7,21 +7,21 @@
 \usage{
 archeofrag.gui()
 }
-\arguments{}
 \details{
 
 This function launches the `archeofrag.gui` application.
+
+Note that the  optional determination of graph planarity in  the \code{\link[archeofrag]{archeofrag}} package requires the  \code{RBGL} package.
 }
 \value{
-    Launch the `archeofrag.gui` Shiny application.
+    Launch the `archeofrag.gui` R Shiny application.
 }
 \author{Sebastien Plutniak <sebastien.plutniak at posteo.net>}
 
 \seealso{
-  \code{shiny}
-  \code{archeofrag}
-  \code{\link[shinythemes]{shinytheme}}
-  \code{ggplot2}
+  \code{\link[archeofrag]{archeofrag}}
+	\code{\link[archeofrag]{frag.simul.process}}
+	\code{\link[archeofrag]{frag.get.parameters}}
 }
 
 \examples{

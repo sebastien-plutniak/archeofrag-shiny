@@ -2,29 +2,27 @@ Package: archeofrag.gui
 Type: Package
 Title: Spatial Analysis in Archaeology from Refitting Fragments (GUI)
 Version: 0.1.0
-Date: 2024-12-09
+Date: 2024-12-18
 Authors@R: person("Sebastien", "Plutniak", email = "sebastien.plutniak@posteo.net", role = c("aut", "cre"), comment = c(ORCID = "0000-0002-6674-3806"))
 Author: Sebastien Plutniak [aut, cre] (<https://orcid.org/0000-0002-6674-3806>)
 Maintainer: Sebastien Plutniak <sebastien.plutniak@posteo.net>
-Description: An R 'Shiny' application to access the functionalities of the 'archeofrag' package for spatial analysis in archaeology from refitting data. Demonstration of the application is available at <https://analytics.huma-num.fr/Sebastien.Plutniak/archeofrag/>.
+Description: An R 'Shiny' application to access the functionalities and datasets of the `archeofrag package for spatial analysis in archaeology from refitting data. Quick and seamless exploration of archaeological refitting datasets. Features include: exclusive focus on connection relationships (i.e. physical refits), built-in documentation and convenient workflow, plot generation and export, R code generation to re-execute the simulations in R and ensure reproducibility, support for parallel computing to speed up computation. A demonstration version of the app is available at <https://analytics.huma-num.fr/Sebastien.Plutniak/archeofrag/>.
 License: GPL-3
 Repository: CRAN
 Encoding: UTF-8
 Imports:
-	shiny,
 	archeofrag,
-    ggplot2,
-    shinythemes,
-    DT,
-    igraph,
-	RBGL,
 	dendextend,
-	grDevices,
 	doParallel,
+    DT,
 	foreach,
+    ggplot2,
+	grDevices,
+    igraph,
+	shiny,
+    shinythemes,
 Suggests:
-    rmarkdown,
-    markdown,
+	RBGL,
 URL: https://github.com/sebastien-plutniak/archeofrag.gui
 BugReports: https://github.com/sebastien-plutniak/archeofrag.gui/issues
 
