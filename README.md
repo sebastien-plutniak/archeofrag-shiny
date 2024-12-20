@@ -15,27 +15,36 @@ An R 'Shiny' application to access the functionalities and datasets of the 'arch
 [![license](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](https://www.r-project.org/Licenses/GPL-3)
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.4271900.svg)](https://doi.org/TODO)
 
-\
 
-\
+# Summary 
+
+
+![](inst/www/general-idea.png)
+
+This [R Shiny application](https://analytics.huma-num.fr/Sebastien.Plutniak/archeofrag/) implements and complements some features of the [`archeofrag` package](https://github.com/sebastien-plutniak/archeofrag) R package for spatial analysis in archaeology from the study of refitting fragments of objects. Based on the [TSAR](https://doi.org/10.1016/j.jas.2021.105501) method (Topological Study of Archaeological Refitting), it includes functions to evaluate and validate the distinction between archaeological spatial units (e.g. layers), from the distribution and the topology of the refitting relationships between the fragments contained in these units. 
+
 
 
 [![alt Click to launch a demonstration](archeofraggui.png "Click to launch a demonstration")](https://analytics.huma-num.fr/Sebastien.Plutniak/archeofrag/)
 
-\
 
-This [R Shiny application](https://analytics.huma-num.fr/Sebastien.Plutniak/archeofrag/) offers a graphic user interface for the [`archeofrag` package](https://github.com/sebastien-plutniak/archeofrag) for spatial analysis from refitting objects in archaeology.
+
+
+
 
 # Contents
 
+- [**Abstract**](#abstract)
 - [**Installation**](#installation)
   - [R package](#r-package)
   - [GUI version](#gui-version)
-- [**About *archeofrag* **](#about-archeofrag)
-- [**Features**](#features)
-- [**Community guidelines**](#community-guidelines)
+- [**About archeofrag**](#about-archeofrag)
+- [**archeofrag.gui features**](#archeofrag.gui-features)
   - [Reporting bugs](#reporting-bugs)
   - [Suggesting changes](#suggesting-changes)
+- [**Data input**](#data-input)
+- [**Comparison with simulated data**](#comparison-with-simulated-data)
+- [**Community guidelines**](#community-guidelines)
 - [**References**](#references)
 
 
@@ -73,13 +82,13 @@ BiocManager::install("RBGL")
 ```
 
 
-# About *archeofrag*
+# About archeofrag
 
 Please refer to the `archeofrag` package documentation on [CRAN](https://github.com/sebastien-plutniak/archeofrag) or [github](https://github.com/sebastien-plutniak/archeofrag) to learn about its methods and functions for spatial and refitting analysis.
 
 
 
-# Features
+# archeofrag.gui features
 
 * Exclusive focus on connection relationships (i.e. physical refits)
 * Integrated workflow for quick and efficient use of `archeofrag` functionalities
@@ -89,23 +98,6 @@ Please refer to the `archeofrag` package documentation on [CRAN](https://github.
 * Charts generation and export as SVG
 * Interoperability: data can be exported to `archeofrag.gui` from the [*archeoViz*](https://analytics.huma-num.fr/archeoviz/en) application for archaeological spatial data visualisation.
 
-
-
-
-
-
-
-# Community guidelines
-
-## Reporting bugs
-
-If you find a bug, please fill an [issue](https://github.com/sebastien-plutniak/archeofrag/issues) with all the details needed to reproduce it.
-
-## Suggesting changes
-
-Suggestions of changes to `archeofrag.gui` are very welcome. These requests may concern additional functions, changes to documentation, additional examples, new features, etc. 
-They can be made by filling an [issue](https://github.com/sebastien-plutniak/archeofrag/issues) and, even better, using pull requests and the [GitHub Fork and Pull
-model](https://help.github.com/articles/about-pull-requests).
 
 
 
@@ -128,6 +120,31 @@ The observed data can be compared to similar simulated data for two formation hy
 * H2, the material was deposited during two deposition episodes, that archaeologists could not distinguish due to subsequent perturbations, admixture, and sampling resulting either from human or non-human action
 
 Select the pair of spatial units to compare in the menu, set the number of simulated data sets to generate, and click on the “Run” button. Depending on the size of the data set, the computing time can be long. Charts are generated for various parameters measured on the fragmentation graphs: the value observed on the empirical graph is represented by a vertical bar, the distribution of values for each hypotheses are represented by dark (H1) and light (H2) grey shades.
+
+
+
+
+
+
+
+
+
+
+# Community guidelines
+
+## Reporting bugs
+
+If you find a bug, please fill an [issue](https://github.com/sebastien-plutniak/archeofrag/issues) with all the details needed to reproduce it.
+
+## Suggesting changes
+
+Suggestions of changes to `archeofrag.gui` are very welcome. These requests may concern additional functions, changes to documentation, additional examples, new features, etc. 
+They can be made by filling an [issue](https://github.com/sebastien-plutniak/archeofrag/issues) and, even better, using pull requests and the [GitHub Fork and Pull
+model](https://help.github.com/articles/about-pull-requests).
+
+
+
+
 
 # References
 
