@@ -4,6 +4,7 @@
 .gitignore
 .Rhistory
 README.md
+archeofraggui.png
 app.R
 cran-comments.md
 .travis.yml
